@@ -11,6 +11,35 @@ import type {
   PunchResult,
 } from '@/types'
 
+// ── Helper: chamar Edge Function autenticada ──────────────────
+async function callEdgeFunction(
+  functionName: string,
+  body: Record<string, unknown>
+): Promise<{ ok: boolean; data: unknown; error?: string }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/${functionName}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    )
+    const data = await res.json() as unknown
+    if (!res.ok) {
+      const errMsg = (data as { error?: string }).error ?? `Erro ${res.status}`
+      return { ok: false, data, error: errMsg }
+    }
+    return { ok: true, data }
+  } catch (err) {
+    return { ok: false, data: null, error: (err as Error).message }
+  }
+}
+
 export const useStore = create<AppState>((set, get) => ({
   // ── Estado inicial ──────────────────────────────────────────
   currentUser: null,
@@ -28,6 +57,7 @@ export const useStore = create<AppState>((set, get) => ({
   login: async (matricula: number, password: string): Promise<AuthResult> => {
     set({ isAuthLoading: true })
     try {
+      // O email de todos os utilizadores segue o padrão: {matricula}@a2datapoint.internal
       const email = `${matricula}@a2datapoint.internal`
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -46,7 +76,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (profileError || !profile) {
         await supabase.auth.signOut()
         set({ isAuthLoading: false })
-        return { success: false, error: 'Perfil não encontrado.' }
+        return { success: false, error: 'Perfil não encontrado. Contacte o administrador.' }
       }
 
       const nextView: AppView = profile.is_first_access
@@ -55,23 +85,24 @@ export const useStore = create<AppState>((set, get) => ({
           ? 'admin'
           : 'employee-dashboard'
 
-      set({
-        currentUser: profile,
-        currentView: nextView,
-        isAuthLoading: false,
-      })
+      set({ currentUser: profile, currentView: nextView, isAuthLoading: false })
 
       if (profile.role === 'admin') {
-        get().fetchProfiles()
-        get().fetchTimeLogs()
-        get().fetchOvertimeRequests()
-        get().fetchShifts()
+        // Carregar dados do admin em background
+        void get().fetchProfiles()
+        void get().fetchTimeLogs()
+        void get().fetchOvertimeRequests()
+        void get().fetchShifts()
+      } else {
+        // Funcionário também precisa dos próprios turnos
+        void get().fetchShifts()
       }
 
       return { success: true, user: profile, isFirstAccess: profile.is_first_access }
-    } catch {
+    } catch (err) {
+      console.error('Login error:', err)
       set({ isAuthLoading: false })
-      return { success: false, error: 'Erro de conexão. Tente novamente.' }
+      return { success: false, error: 'Erro de conexão. Verifique a internet e tente novamente.' }
     }
   },
 
@@ -93,14 +124,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser) return false
 
     try {
+      // Actualizar senha no Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({ password })
       if (authError) throw authError
 
+      // Marcar is_first_access = false no perfil
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ is_first_access: false })
         .eq('id', currentUser.id)
-
       if (profileError) throw profileError
 
       const updatedUser = { ...currentUser, is_first_access: false }
@@ -109,10 +141,12 @@ export const useStore = create<AppState>((set, get) => ({
       set({ currentUser: updatedUser, currentView: nextView })
 
       if (currentUser.role === 'admin') {
-        get().fetchProfiles()
-        get().fetchTimeLogs()
-        get().fetchOvertimeRequests()
-        get().fetchShifts()
+        void get().fetchProfiles()
+        void get().fetchTimeLogs()
+        void get().fetchOvertimeRequests()
+        void get().fetchShifts()
+      } else {
+        void get().fetchShifts()
       }
 
       return true
@@ -136,6 +170,7 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isLoading: true })
 
     try {
+      // Validar janela de ponto via RPC
       const { data: validationResult } = await supabase.rpc('validate_punch_time', {
         p_user_id: currentUser.id,
         p_type: type,
@@ -144,6 +179,7 @@ export const useStore = create<AppState>((set, get) => ({
       const flag: TimeLog['flag'] =
         validationResult === 'he_not_registered' ? 'he_not_registered' : null
 
+      // Upload da foto
       let photoUrl: string | null = null
       if (photoDataUrl) {
         photoUrl = await uploadPhoto(currentUser.id, photoDataUrl)
@@ -157,9 +193,9 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (error) throw error
 
-      set((state) => ({ timeLogs: [newLog, ...state.timeLogs], isLoading: false }))
+      set((state) => ({ timeLogs: [newLog as TimeLog, ...state.timeLogs], isLoading: false }))
 
-      const timeStr = new Date(newLog.timestamp).toLocaleTimeString('pt-BR', {
+      const timeStr = new Date((newLog as TimeLog).timestamp).toLocaleTimeString('pt-BR', {
         hour: '2-digit',
         minute: '2-digit',
       })
@@ -168,7 +204,7 @@ export const useStore = create<AppState>((set, get) => ({
           ? `Entrada registrada com sucesso às ${timeStr}`
           : `Saída registrada com sucesso às ${timeStr}`
 
-      return { success: true, flag, message, log: newLog }
+      return { success: true, flag, message, log: newLog as TimeLog }
     } catch (err) {
       console.error('Erro ao registrar ponto:', err)
       set({ isLoading: false })
@@ -186,13 +222,18 @@ export const useStore = create<AppState>((set, get) => ({
 
       const { data, error } = await supabase
         .from('overtime_requests')
-        .insert({ user_id: currentUser.id, date: today, duration_minutes: durationMinutes, status: 'pending' })
+        .insert({
+          user_id: currentUser.id,
+          date: today,
+          duration_minutes: durationMinutes,
+          status: 'pending',
+        })
         .select()
         .single()
 
       if (error) throw error
 
-      set((state) => ({ overtimeRequests: [data, ...state.overtimeRequests] }))
+      set((state) => ({ overtimeRequests: [data as OvertimeRequest, ...state.overtimeRequests] }))
       return true
     } catch (err) {
       console.error('Erro ao solicitar HE:', err)
@@ -210,6 +251,7 @@ export const useStore = create<AppState>((set, get) => ({
       const request = get().overtimeRequests.find((r) => r.id === requestId)
       if (!request) return false
 
+      // Regra: só D-0, D-1 e D-2
       const requestDate = new Date(request.date)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
@@ -218,14 +260,20 @@ export const useStore = create<AppState>((set, get) => ({
 
       const { error } = await supabase
         .from('overtime_requests')
-        .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: currentUser.id })
+        .update({
+          status: 'approved',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: currentUser.id,
+        })
         .eq('id', requestId)
 
       if (error) throw error
 
       set((state) => ({
         overtimeRequests: state.overtimeRequests.map((r) =>
-          r.id === requestId ? { ...r, status: 'approved', reviewed_at: new Date().toISOString() } : r
+          r.id === requestId
+            ? { ...r, status: 'approved', reviewed_at: new Date().toISOString() }
+            : r
         ),
       }))
       return true
@@ -242,14 +290,20 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const { error } = await supabase
         .from('overtime_requests')
-        .update({ status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: currentUser.id })
+        .update({
+          status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: currentUser.id,
+        })
         .eq('id', requestId)
 
       if (error) throw error
 
       set((state) => ({
         overtimeRequests: state.overtimeRequests.map((r) =>
-          r.id === requestId ? { ...r, status: 'rejected', reviewed_at: new Date().toISOString() } : r
+          r.id === requestId
+            ? { ...r, status: 'rejected', reviewed_at: new Date().toISOString() }
+            : r
         ),
       }))
       return true
@@ -259,27 +313,18 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  // CORRIGIDO: usa Edge Function create-user
   createUser: async (name: string): Promise<number | null> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return null
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/create-user`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token ?? ''}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name }),
-        }
-      )
-
-      if (!response.ok) throw new Error('Falha ao criar utilizador')
-
-      const json = await response.json() as { matricula: number }
+      const result = await callEdgeFunction('create-user', { name })
+      if (!result.ok) {
+        console.error('Erro ao criar utilizador:', result.error)
+        return null
+      }
+      const json = result.data as { matricula: number }
       await get().fetchProfiles()
       return json.matricula
     } catch (err) {
@@ -288,13 +333,17 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  // CORRIGIDO: usa Edge Function delete-user (apaga do auth.users em cascata)
   deleteUser: async (userId: string): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      const { error } = await supabase.from('profiles').delete().eq('id', userId)
-      if (error) throw error
+      const result = await callEdgeFunction('delete-user', { userId })
+      if (!result.ok) {
+        console.error('Erro ao excluir utilizador:', result.error)
+        return false
+      }
 
       set((state) => ({
         profiles: state.profiles.filter((p) => p.id !== userId),
@@ -304,38 +353,22 @@ export const useStore = create<AppState>((set, get) => ({
       }))
       return true
     } catch (err) {
-      console.error('Erro ao deletar utilizador:', err)
+      console.error('Erro ao excluir utilizador:', err)
       return false
     }
   },
 
+  // CORRIGIDO: usa Edge Function reset-password
   resetUserPassword: async (userId: string): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/reset-password`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token ?? ''}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userId }),
-        }
-      )
-
-      if (!response.ok) throw new Error('Falha ao resetar senha')
-
-      // Marcar is_first_access = true para forçar redefinição
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_first_access: true })
-        .eq('id', userId)
-
-      if (error) throw error
+      const result = await callEdgeFunction('reset-password', { userId })
+      if (!result.ok) {
+        console.error('Erro ao resetar senha:', result.error)
+        return false
+      }
 
       set((state) => ({
         profiles: state.profiles.map((p) =>
@@ -377,14 +410,23 @@ export const useStore = create<AppState>((set, get) => ({
       .select('*')
       .order('matricula', { ascending: true })
     if (!error && data) set({ profiles: data })
+    else if (error) console.error('fetchProfiles:', error.message)
   },
 
   fetchShifts: async () => {
-    const { data, error } = await supabase
-      .from('shifts')
-      .select('*')
-      .order('day_of_week', { ascending: true })
+    const { currentUser } = get()
+    if (!currentUser) return
+
+    let query = supabase.from('shifts').select('*')
+
+    // Admin carrega todos; funcionário carrega apenas os seus
+    if (currentUser.role !== 'admin') {
+      query = query.eq('user_id', currentUser.id)
+    }
+
+    const { data, error } = await query.order('day_of_week', { ascending: true })
     if (!error && data) set({ shifts: data })
+    else if (error) console.error('fetchShifts:', error.message)
   },
 
   fetchTimeLogs: async (fromDate?: Date) => {
@@ -402,6 +444,7 @@ export const useStore = create<AppState>((set, get) => ({
       .limit(500)
 
     if (!error && data) set({ timeLogs: data as TimeLog[] })
+    else if (error) console.error('fetchTimeLogs:', error.message)
   },
 
   fetchOvertimeRequests: async () => {
@@ -412,6 +455,7 @@ export const useStore = create<AppState>((set, get) => ({
       .limit(200)
 
     if (!error && data) set({ overtimeRequests: data as OvertimeRequest[] })
+    else if (error) console.error('fetchOvertimeRequests:', error.message)
   },
 
   // ── Selectors ────────────────────────────────────────────────
@@ -441,25 +485,27 @@ export const useStore = create<AppState>((set, get) => ({
     const { currentUser, shifts } = get()
     if (!currentUser) return null
     const todayDow = new Date().getDay()
-    return shifts.find(
-      (s) => s.user_id === currentUser.id && s.day_of_week === todayDow
-    ) ?? null
+    return (
+      shifts.find(
+        (s) => s.user_id === currentUser.id && s.day_of_week === todayDow
+      ) ?? null
+    )
   },
 
   getPendingOvertimeCount: () =>
     get().overtimeRequests.filter((r) => r.status === 'pending').length,
 }))
 
-// ── Restaurar sessão ──────────────────────────────────────────
+// ── Restaurar sessão ao carregar a app ────────────────────────
 supabase.auth.getSession().then(async ({ data: { session } }) => {
   if (session?.user) {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single()
 
-    if (profile) {
+    if (profile && !error) {
       const view: AppView =
         profile.is_first_access
           ? 'first-access'
@@ -469,14 +515,19 @@ supabase.auth.getSession().then(async ({ data: { session } }) => {
 
       useStore.setState({ currentUser: profile, currentView: view, isAuthLoading: false })
 
+      const store = useStore.getState()
       if (profile.role === 'admin') {
-        const store = useStore.getState()
-        store.fetchProfiles()
-        store.fetchTimeLogs()
-        store.fetchOvertimeRequests()
-        store.fetchShifts()
+        void store.fetchProfiles()
+        void store.fetchTimeLogs()
+        void store.fetchOvertimeRequests()
+        void store.fetchShifts()
+      } else {
+        // BUG FIX: funcionário também precisa carregar os turnos
+        void store.fetchShifts()
       }
     } else {
+      // Sessão existente mas perfil não encontrado — limpar
+      await supabase.auth.signOut()
       useStore.setState({ isAuthLoading: false })
     }
   } else {
@@ -484,11 +535,12 @@ supabase.auth.getSession().then(async ({ data: { session } }) => {
   }
 })
 
-supabase.auth.onAuthStateChange(async (event) => {
+supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') {
     useStore.setState({
       currentUser: null,
       currentView: 'login',
+      adminView: 'dashboard',
       profiles: [],
       timeLogs: [],
       overtimeRequests: [],

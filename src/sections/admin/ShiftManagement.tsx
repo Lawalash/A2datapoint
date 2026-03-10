@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import {
   Calendar, Clock, CheckSquare, Square, Save,
-  Users, ChevronDown, ChevronUp, AlertCircle, CheckCircle2
+  Users, ChevronDown, ChevronUp, CheckCircle2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -32,24 +32,31 @@ const PRESET_SHIFTS = [
 ]
 
 export function ShiftManagement() {
-  const { profiles, shifts, fetchProfiles, fetchShifts, bulkAssignShifts } = useStore()
+  const profiles = useStore((s) => s.profiles)
+  const shifts = useStore((s) => s.shifts)
+  const fetchProfiles = useStore((s) => s.fetchProfiles)
+  const fetchShifts = useStore((s) => s.fetchShifts)
+  const bulkAssignShifts = useStore((s) => s.bulkAssignShifts)
 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
-  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]) // Seg–Sex
+  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5])
   const [startTime, setStartTime] = useState('08:00')
   const [endTime, setEndTime] = useState('18:00')
   const [isSaving, setIsSaving] = useState(false)
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
 
+  // CORRIGIDO: dependências corretas no useEffect
   useEffect(() => {
     fetchProfiles()
     fetchShifts()
-  }, [])
+  }, [fetchProfiles, fetchShifts])
 
   const employees = profiles.filter((p) => p.role === 'employee')
-  const filteredEmployees = employees.filter((e) =>
-    e.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = employees.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(p.matricula).includes(searchTerm)
   )
 
   const toggleUser = (userId: string) => {
@@ -65,33 +72,32 @@ export function ShiftManagement() {
   }
 
   const selectAllUsers = () => {
-    if (selectedUsers.length === filteredEmployees.length) {
-      setSelectedUsers([])
-    } else {
-      setSelectedUsers(filteredEmployees.map((e) => e.id))
-    }
+    setSelectedUsers(filtered.map((p) => p.id))
   }
 
-  const applyPreset = (preset: typeof PRESET_SHIFTS[0]) => {
-    setStartTime(preset.start)
-    setEndTime(preset.end)
+  const clearAllUsers = () => {
+    setSelectedUsers([])
   }
 
-  const getUserShifts = (userId: string) => {
-    return shifts.filter((s) => s.user_id === userId)
+  const getUserShifts = (userId: string) =>
+    shifts.filter((s) => s.user_id === userId).sort((a, b) => a.day_of_week - b.day_of_week)
+
+  const applyPreset = (start: string, end: string) => {
+    setStartTime(start)
+    setEndTime(end)
   }
 
   const handleSave = async () => {
     if (selectedUsers.length === 0) {
-      toast.error('Selecione ao menos um funcionário')
+      toast.error('Selecione pelo menos um funcionário.')
       return
     }
     if (selectedDays.length === 0) {
-      toast.error('Selecione ao menos um dia da semana')
+      toast.error('Selecione pelo menos um dia.')
       return
     }
     if (!startTime || !endTime) {
-      toast.error('Defina os horários de entrada e saída')
+      toast.error('Defina os horários de entrada e saída.')
       return
     }
 
@@ -101,7 +107,7 @@ export function ShiftManagement() {
 
     if (ok) {
       toast.success(
-        `Escala atribuída a ${selectedUsers.length} funcionário(s) em ${selectedDays.length} dia(s)`
+        `Escala aplicada a ${selectedUsers.length} funcionário(s) em ${selectedDays.length} dia(s)!`
       )
       setSelectedUsers([])
     } else {
@@ -109,41 +115,41 @@ export function ShiftManagement() {
     }
   }
 
+  const DOW_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
+
   return (
-    <div className="p-4 lg:p-8 max-w-6xl mx-auto">
+    <div className="p-4 lg:p-8 max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl lg:text-3xl font-bold text-[#0f2d5c]">Gestão de Escalas</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Atribua horários de turno para múltiplos funcionários de uma só vez
-        </p>
+        <p className="text-sm text-gray-500 mt-1">Atribuir turnos em massa aos funcionários</p>
       </div>
 
-      <div className="grid lg:grid-cols-5 gap-6">
-        {/* ── Configuração do turno ─────────────────────────── */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card className="border-gray-100">
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* ── Configuração de turno ─────────────────────────── */}
+        <div className="space-y-4">
+          <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base text-[#0f2d5c] flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#00b4d8]" />
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#0f2d5c]" />
                 Horário do Turno
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Presets */}
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                  Turnos Rápidos
+                <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">
+                  Turnos pré-definidos
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-1 gap-1.5">
                   {PRESET_SHIFTS.map((preset) => (
                     <button
                       key={preset.label}
-                      onClick={() => applyPreset(preset)}
+                      onClick={() => applyPreset(preset.start, preset.end)}
                       className={cn(
-                        'text-xs px-3 py-1.5 rounded-full border font-medium transition-all',
+                        'text-left px-3 py-2 rounded-lg text-sm transition-all border',
                         startTime === preset.start && endTime === preset.end
-                          ? 'bg-[#00b4d8] text-white border-[#00b4d8]'
-                          : 'border-gray-200 text-gray-600 hover:border-[#00b4d8] hover:text-[#00b4d8]'
+                          ? 'bg-[#0f2d5c] text-white border-[#0f2d5c]'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                       )}
                     >
                       {preset.label}
@@ -153,216 +159,214 @@ export function ShiftManagement() {
               </div>
 
               {/* Custom time */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-medium text-gray-600 mb-1.5 block">
-                    Entrada
-                  </Label>
-                  <Input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="h-11 text-center font-mono text-base"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium text-gray-600 mb-1.5 block">
-                    Saída
-                  </Label>
-                  <Input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="h-11 text-center font-mono text-base"
-                  />
+              <div>
+                <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">
+                  Horário personalizado
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-gray-600 mb-1 block">Entrada</Label>
+                    <Input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="h-11 text-center font-mono text-base"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-600 mb-1 block">Saída</Label>
+                    <Input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="h-11 text-center font-mono text-base"
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Days selection */}
-          <Card className="border-gray-100">
+          {/* Days of week */}
+          <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base text-[#0f2d5c] flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#00b4d8]" />
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#0f2d5c]" />
                 Dias da Semana
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-7 gap-1.5">
+              <div className="grid grid-cols-7 gap-1">
                 {DAYS.map((day) => {
-                  const selected = selectedDays.includes(day.value)
+                  const active = selectedDays.includes(day.value)
                   return (
                     <button
                       key={day.value}
                       onClick={() => toggleDay(day.value)}
+                      title={day.label}
                       className={cn(
-                        'aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-semibold transition-all',
-                        selected
-                          ? 'bg-[#0f2d5c] text-white shadow-md'
+                        'h-11 rounded-xl text-xs font-bold transition-all',
+                        active
+                          ? 'bg-[#0f2d5c] text-white shadow-sm'
                           : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       )}
                     >
-                      {day.short}
+                      {day.short.charAt(0)}
                     </button>
                   )
                 })}
               </div>
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => setSelectedDays([1, 2, 3, 4, 5])}
-                  className="text-xs text-[#00b4d8] hover:underline"
-                >
-                  Seg–Sex
-                </button>
-                <span className="text-gray-300">|</span>
-                <button
-                  onClick={() => setSelectedDays([0, 1, 2, 3, 4, 5, 6])}
-                  className="text-xs text-[#00b4d8] hover:underline"
-                >
-                  Todos
-                </button>
-                <span className="text-gray-300">|</span>
-                <button
-                  onClick={() => setSelectedDays([])}
-                  className="text-xs text-gray-400 hover:underline"
-                >
-                  Limpar
-                </button>
-              </div>
+              <p className="text-xs text-gray-400 mt-2 text-center">
+                {selectedDays.length === 0
+                  ? 'Nenhum dia selecionado'
+                  : `${selectedDays.length} dia(s): ${selectedDays
+                      .sort()
+                      .map((d) => DOW_LABELS[d])
+                      .join(' ')}`}
+              </p>
             </CardContent>
           </Card>
 
           {/* Save button */}
           <Button
+            className="w-full h-14 bg-[#0f2d5c] hover:bg-[#1a3a6e] text-white font-semibold text-base"
             onClick={handleSave}
             disabled={isSaving || selectedUsers.length === 0 || selectedDays.length === 0}
-            className="w-full h-12 bg-[#0f2d5c] hover:bg-[#1e3a5f] text-white font-semibold"
           >
             {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                Salvando...
-              </>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
             ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Aplicar a {selectedUsers.length} funcionário(s)
-              </>
+              <Save className="w-5 h-5 mr-2" />
             )}
+            {isSaving
+              ? 'Salvando...'
+              : `Aplicar a ${selectedUsers.length} funcionário(s)`}
           </Button>
         </div>
 
-        {/* ── Seleção de funcionários ───────────────────────── */}
-        <div className="lg:col-span-3">
-          <Card className="border-gray-100 h-full">
+        {/* ── Lista de funcionários ──────────────────────────── */}
+        <div>
+          <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base text-[#0f2d5c] flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#00b4d8]" />
-                  Funcionários ({filteredEmployees.length})
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#0f2d5c]" />
+                  Funcionários ({filtered.length})
                 </CardTitle>
-                <button
-                  onClick={selectAllUsers}
-                  className="text-xs text-[#00b4d8] font-medium hover:underline flex items-center gap-1"
-                >
-                  {selectedUsers.length === filteredEmployees.length && filteredEmployees.length > 0
-                    ? <><Square className="w-3 h-3" /> Desmarcar todos</>
-                    : <><CheckSquare className="w-3 h-3" /> Selecionar todos</>
-                  }
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={selectAllUsers}
+                    className="text-xs text-[#0f2d5c] hover:underline flex items-center gap-1"
+                  >
+                    <CheckSquare className="w-3.5 h-3.5" />
+                    Todos
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    onClick={clearAllUsers}
+                    className="text-xs text-gray-400 hover:underline flex items-center gap-1"
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    Nenhum
+                  </button>
+                </div>
               </div>
               <Input
-                placeholder="Buscar funcionário..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="mt-2 h-9 text-sm"
+                className="h-9 text-sm mt-2"
               />
             </CardHeader>
             <CardContent className="p-0">
-              {selectedUsers.length > 0 && (
-                <div className="mx-4 mb-3 px-3 py-2 bg-[#00b4d8]/10 rounded-xl flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#00b4d8] shrink-0" />
-                  <p className="text-xs text-[#0f2d5c] font-medium">
-                    {selectedUsers.length} funcionário(s) selecionado(s)
-                  </p>
-                </div>
-              )}
-
-              <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
-                {filteredEmployees.length === 0 ? (
-                  <div className="py-10 text-center text-gray-400">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">Nenhum funcionário encontrado</p>
+              <div className="max-h-[520px] overflow-y-auto divide-y divide-gray-100">
+                {filtered.length === 0 ? (
+                  <div className="py-10 text-center text-gray-400 text-sm">
+                    Nenhum funcionário encontrado
                   </div>
                 ) : (
-                  filteredEmployees.map((employee) => {
-                    const isSelected = selectedUsers.includes(employee.id)
-                    const userShifts = getUserShifts(employee.id)
-                    const isExpanded = expandedUser === employee.id
+                  filtered.map((emp) => {
+                    const checked = selectedUsers.includes(emp.id)
+                    const userShifts = getUserShifts(emp.id)
+                    const isExpanded = expandedUser === emp.id
 
                     return (
-                      <div key={employee.id} className={cn(
-                        'transition-colors',
-                        isSelected ? 'bg-[#00b4d8]/5' : 'hover:bg-gray-50/50'
-                      )}>
-                        <div className="flex items-center gap-3 px-4 py-3">
+                      <div key={emp.id}>
+                        <div
+                          className={cn(
+                            'flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors',
+                            checked ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          )}
+                          onClick={() => toggleUser(emp.id)}
+                        >
                           <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => toggleUser(employee.id)}
-                            className="data-[state=checked]:bg-[#00b4d8] data-[state=checked]:border-[#00b4d8]"
+                            checked={checked}
+                            onCheckedChange={() => toggleUser(emp.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="shrink-0"
                           />
-                          <div
-                            className="flex-1 flex items-center gap-2.5 cursor-pointer"
-                            onClick={() => toggleUser(employee.id)}
-                          >
-                            <div className="w-8 h-8 rounded-full bg-[#0f2d5c]/10 flex items-center justify-center shrink-0">
-                              <span className="text-xs font-bold text-[#0f2d5c]">
-                                {employee.name.charAt(0)}
-                              </span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">
-                                {employee.name}
-                              </p>
-                              <p className="text-xs text-gray-400">Mat. {employee.matricula}</p>
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-800 text-sm truncate">
+                              {emp.name}
+                            </p>
+                            <p className="text-gray-400 text-xs">Mat. {emp.matricula}</p>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setExpandedUser(isExpanded ? null : employee.id)
-                            }}
-                            className="text-gray-400 hover:text-gray-600 p-1"
-                          >
-                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
+
+                          {/* Shift days preview */}
+                          {userShifts.length > 0 && (
+                            <div className="flex gap-0.5">
+                              {[0, 1, 2, 3, 4, 5, 6].map((d) => {
+                                const has = userShifts.some((s) => s.day_of_week === d)
+                                return (
+                                  <div
+                                    key={d}
+                                    className={cn(
+                                      'w-4 h-4 rounded-sm text-[8px] font-bold flex items-center justify-center',
+                                      has ? 'bg-[#0f2d5c] text-white' : 'bg-gray-100 text-gray-300'
+                                    )}
+                                  >
+                                    {DOW_LABELS[d]}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+
+                          {/* Expand toggle */}
+                          {userShifts.length > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setExpandedUser(isExpanded ? null : emp.id)
+                              }}
+                              className="text-gray-400 hover:text-gray-600 p-1"
+                            >
+                              {isExpanded
+                                ? <ChevronUp className="w-4 h-4" />
+                                : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                          )}
                         </div>
 
-                        {/* Escalas atuais do funcionário */}
-                        {isExpanded && (
-                          <div className="px-4 pb-3 pl-12">
-                            {userShifts.length === 0 ? (
-                              <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2.5 py-1.5 rounded-lg">
-                                <AlertCircle className="w-3 h-3 shrink-0" />
-                                Sem escala definida
-                              </div>
-                            ) : (
-                              <div className="flex flex-wrap gap-1.5">
-                                {DAYS.filter((d) => userShifts.find((s) => s.day_of_week === d.value))
-                                  .map((d) => {
-                                    const shift = userShifts.find((s) => s.day_of_week === d.value)!
-                                    return (
-                                      <div key={d.value} className="flex items-center gap-1 bg-[#0f2d5c]/5 rounded-lg px-2 py-1">
-                                        <span className="text-xs font-semibold text-[#0f2d5c]">{d.short}</span>
-                                        <span className="text-xs text-gray-500">
-                                          {shift.start_time.slice(0, 5)}–{shift.end_time.slice(0, 5)}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
-                              </div>
-                            )}
+                        {/* Expanded shifts */}
+                        {isExpanded && userShifts.length > 0 && (
+                          <div className="bg-gray-50 px-4 py-3 border-t border-gray-100">
+                            <p className="text-xs text-gray-500 mb-2 font-medium">
+                              Escala actual:
+                            </p>
+                            <div className="space-y-1">
+                              {userShifts.map((s) => (
+                                <div key={s.id} className="flex items-center gap-2 text-xs">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                  <span className="text-gray-600 w-16">
+                                    {DAYS.find((d) => d.value === s.day_of_week)?.label}
+                                  </span>
+                                  <span className="text-[#0f2d5c] font-mono font-medium">
+                                    {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
