@@ -5,25 +5,12 @@ import type {
   AppState,
   AppView,
   AdminView,
-  Profile,
   TimeLog,
   OvertimeRequest,
   AuthResult,
   PunchResult,
 } from '@/types'
 
-// ============================================================
-// Helpers
-// ============================================================
-function isWithinPunchWindow(scheduledTime: string, nowTime: Date): boolean {
-  const [h, m] = scheduledTime.split(':').map(Number)
-  const scheduled = new Date(nowTime)
-  scheduled.setHours(h, m, 0, 0)
-
-  const diffMinutes = (nowTime.getTime() - scheduled.getTime()) / 60000
-  // Janela: -3 min antes até +2 min depois
-  return diffMinutes >= -3 && diffMinutes <= 2
-}
 
 // ============================================================
 // Store
@@ -329,31 +316,25 @@ export const useStore = create<AppState>((set, get) => ({
 
       const nextMatricula = (maxProfile?.matricula ?? 0) + 1
       const email = `${nextMatricula}@a2datapoint.internal`
-      const tempPassword = Math.random().toString(36).slice(-8)
 
-      // Criar via Admin API (Edge Function ou service role)
-      // NOTA: Esta operação requer service_role_key no servidor
-      // Aqui usamos um RPC seguro que deve ser criado no Supabase
+      const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+        `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/create-user`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ name, email, tempPassword }),
+          body: JSON.stringify({ name, email }),
         }
       )
 
       if (!response.ok) throw new Error('Falha ao criar utilizador')
 
-      const { matricula } = await response.json()
-
-      // Recarregar lista de perfis
+      const json = await response.json() as { matricula: number }
       await get().fetchProfiles()
-
-      return matricula
+      return json.matricula
     } catch (err) {
       console.error('Erro ao criar utilizador:', err)
       return null
@@ -547,10 +528,3 @@ supabase.auth.onAuthStateChange(async (event) => {
     })
   }
 })
-
-// Importar helper
-function isWithinPunchWindowExport(scheduledTime: string, nowTime: Date): boolean {
-  return isWithinPunchWindow(scheduledTime, nowTime)
-}
-
-export { isWithinPunchWindowExport as isWithinPunchWindow }
