@@ -7,12 +7,11 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   AlertCircle, Loader2, Clock,
-  UserPlus, LogIn, ArrowLeft
+  UserPlus, LogIn, ArrowLeft, ShieldCheck
 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { cn } from '@/lib/utils'
 
-type LoginMode = 'select' | 'first-access' | 'login'
+type LoginMode = 'select' | 'first-access' | 'login' | 'admin-login'
 
 export function EmployeeLogin() {
   const [mode, setMode] = useState<LoginMode>('select')
@@ -27,7 +26,7 @@ export function EmployeeLogin() {
   const reset = () => { setError(''); setMatricula(''); setPassword('') }
   const goTo = (m: LoginMode) => { reset(); setMode(m) }
 
-  // Primeiro Acesso: tenta login com senha = matrícula (temp password)
+  // Primeiro Acesso: login com senha temporária = matrícula
   const handleFirstAccess = async () => {
     setError('')
     const id = parseInt(matricula)
@@ -38,7 +37,7 @@ export function EmployeeLogin() {
     setIsLoading(false)
 
     if (!result.success) {
-      setError('Matrícula não encontrada. Confirme com o administrador.')
+      setError('Matrícula não encontrada ou senha já foi alterada.\nSe esqueceu a senha, peça ao administrador para fazer o reset.')
       return
     }
     if (!result.isFirstAccess) {
@@ -49,7 +48,7 @@ export function EmployeeLogin() {
     // Se isFirstAccess = true, o store já navegou para 'first-access'
   }
 
-  // Login normal
+  // Login funcionário normal
   const handleLogin = async () => {
     setError('')
     const id = parseInt(matricula)
@@ -65,10 +64,28 @@ export function EmployeeLogin() {
     }
   }
 
-  // SELECT MODE
+  // Login admin
+  const handleAdminLogin = async () => {
+    setError('')
+    const id = parseInt(matricula)
+    if (isNaN(id) || id <= 0) { setError('Digite a matrícula.'); return }
+    if (!password) { setError('Digite a senha.'); return }
+
+    setIsLoading(true)
+    const result = await login(id, password)
+    setIsLoading(false)
+
+    if (!result.success) {
+      setError(result.error ?? 'Credenciais incorretas.')
+    }
+    // Se role === 'admin', o store navega automaticamente para 'admin'
+  }
+
+  // ── SELECT MODE ────────────────────────────────────────────────
   if (mode === 'select') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f2d5c] via-[#1a3a6e] to-[#0a1f42] flex flex-col items-center justify-center p-5">
+        {/* Logo */}
         <div className="mb-10 text-center">
           <div className="w-20 h-20 bg-[#00b4d8]/20 border-2 border-[#00b4d8]/40 rounded-3xl flex items-center justify-center mx-auto mb-5">
             <Clock className="w-10 h-10 text-[#00b4d8]" />
@@ -78,6 +95,7 @@ export function EmployeeLogin() {
           <p className="text-white/30 text-xs mt-2">Sistema de Controle de Ponto</p>
         </div>
 
+        {/* Options */}
         <div className="w-full max-w-xs space-y-3">
           <button
             onClick={() => goTo('first-access')}
@@ -106,12 +124,21 @@ export function EmployeeLogin() {
           </button>
         </div>
 
-        <p className="mt-10 text-white/20 text-xs text-center">A2dataPOINT v2.0</p>
+        {/* Admin access — discreto no rodapé */}
+        <div className="mt-auto pt-12 pb-2">
+          <button
+            onClick={() => goTo('admin-login')}
+            className="flex items-center gap-2 text-white/20 hover:text-white/50 transition-colors text-xs"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Acesso Administrativo
+          </button>
+        </div>
       </div>
     )
   }
 
-  // FIRST ACCESS MODE
+  // ── FIRST ACCESS MODE ─────────────────────────────────────────
   if (mode === 'first-access') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f2d5c] via-[#1a3a6e] to-[#0a1f42] flex flex-col items-center justify-center p-5">
@@ -142,7 +169,7 @@ export function EmployeeLogin() {
               {error && (
                 <Alert variant="destructive" className="py-2">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">{error}</AlertDescription>
+                  <AlertDescription className="text-sm whitespace-pre-line">{error}</AlertDescription>
                 </Alert>
               )}
 
@@ -151,10 +178,15 @@ export function EmployeeLogin() {
                 onClick={handleFirstAccess}
                 disabled={isLoading}
               >
-                {isLoading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Verificando...</> : 'Continuar'}
+                {isLoading
+                  ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Verificando...</>
+                  : 'Continuar'}
               </Button>
 
-              <button onClick={() => goTo('select')} className="w-full flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+              <button
+                onClick={() => goTo('select')}
+                className="w-full flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
                 <ArrowLeft className="w-4 h-4" />Voltar
               </button>
             </CardContent>
@@ -164,7 +196,76 @@ export function EmployeeLogin() {
     )
   }
 
-  // LOGIN MODE
+  // ── ADMIN LOGIN MODE ──────────────────────────────────────────
+  if (mode === 'admin-login') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0f2d5c] via-[#1a3a6e] to-[#0a1f42] flex flex-col items-center justify-center p-5">
+        <div className="w-full max-w-xs">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-white/10 border-2 border-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-8 h-8 text-white/70" />
+            </div>
+            <h1 className="text-white font-bold text-xl">Painel Admin</h1>
+            <p className="text-white/40 text-sm mt-1">Acesso restrito a administradores</p>
+          </div>
+
+          <Card className="shadow-2xl border-0">
+            <CardContent className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Matrícula</Label>
+                <Input
+                  type="number"
+                  placeholder="Ex: 1"
+                  value={matricula}
+                  onChange={(e) => { setMatricula(e.target.value); setError('') }}
+                  className="h-12 text-xl text-center font-mono tracking-widest"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Senha</Label>
+                <Input
+                  type="password"
+                  placeholder="••••••"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError('') }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                  className="h-12 text-xl text-center tracking-widest"
+                />
+              </div>
+
+              {error && (
+                <Alert variant="destructive" className="py-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                className="w-full h-12 bg-[#0f2d5c] hover:bg-[#1a3a6e] text-white font-semibold"
+                onClick={handleAdminLogin}
+                disabled={isLoading}
+              >
+                {isLoading
+                  ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Entrando...</>
+                  : 'Entrar como Admin'}
+              </Button>
+
+              <button
+                onClick={() => goTo('select')}
+                className="w-full flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />Voltar
+              </button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // ── LOGIN NORMAL MODE ─────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f2d5c] via-[#1a3a6e] to-[#0a1f42] flex flex-col items-center justify-center p-5">
       <div className="w-full max-w-xs">
@@ -185,7 +286,7 @@ export function EmployeeLogin() {
                 placeholder="Ex: 5"
                 value={matricula}
                 onChange={(e) => { setMatricula(e.target.value); setError('') }}
-                className={cn('h-12 text-xl text-center font-mono tracking-widest')}
+                className="h-12 text-xl text-center font-mono tracking-widest"
                 autoFocus
               />
             </div>
@@ -214,10 +315,15 @@ export function EmployeeLogin() {
               onClick={handleLogin}
               disabled={isLoading}
             >
-              {isLoading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Entrando...</> : 'Entrar'}
+              {isLoading
+                ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Entrando...</>
+                : 'Entrar'}
             </Button>
 
-            <button onClick={() => goTo('select')} className="w-full flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+            <button
+              onClick={() => goTo('select')}
+              className="w-full flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
               <ArrowLeft className="w-4 h-4" />Voltar
             </button>
           </CardContent>
