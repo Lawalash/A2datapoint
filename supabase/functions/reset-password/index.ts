@@ -1,6 +1,6 @@
-// supabase/functions/create-user/index.ts
-// Cria um novo utilizador com senha temporária = matrícula
-// Deploy: supabase functions deploy create-user
+// supabase/functions/reset-password/index.ts
+// Reseta a senha do utilizador para a matrícula (senha temporária)
+// Deploy: supabase functions deploy reset-password
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -27,7 +27,7 @@ serve(async (req) => {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      { auth: { persistSession: false } }
     )
 
     // Verificar se o chamador é admin
@@ -48,52 +48,55 @@ serve(async (req) => {
       .single()
 
     if (callerProfile?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Apenas admins podem criar utilizadores' }), {
+      return new Response(JSON.stringify({ error: 'Apenas admins podem resetar senhas' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { name } = await req.json() as { name: string }
+    const { userId } = await req.json() as { userId: string }
 
-    // Calcular próxima matrícula
-    const { data: maxProfile } = await supabase
+    // Buscar a matrícula do utilizador para usar como senha temporária
+    const { data: targetProfile, error: profileError } = await supabase
       .from('profiles')
       .select('matricula')
-      .order('matricula', { ascending: false })
-      .limit(1)
+      .eq('id', userId)
       .single()
 
-    const matricula = (maxProfile?.matricula ?? 0) + 1
-    const email = `${matricula}@a2datapoint.internal`
-
-    // Senha temporária = matrícula (funcionário define a própria no 1º acesso)
-    const tempPassword = String(matricula)
-
-    const { data: newUser, error } = await supabase.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        name,
-        role: 'employee',
-        is_first_access: true,
-      },
-    })
-
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
+    if (profileError || !targetProfile) {
+      return new Response(JSON.stringify({ error: 'Utilizador não encontrado' }), {
+        status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
+    // Resetar senha para o número da matrícula (senha temporária)
+    const tempPassword = String(targetProfile.matricula)
+
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+    })
+
+    if (updateError) throw updateError
+
+    // Marcar is_first_access = true para forçar redefinição no próximo login
+    const { error: profileUpdateError } = await supabase
+      .from('profiles')
+      .update({ is_first_access: true })
+      .eq('id', userId)
+
+    if (profileUpdateError) throw profileUpdateError
+
     return new Response(
-      JSON.stringify({ matricula, userId: newUser.user.id }),
+      JSON.stringify({
+        success: true,
+        message: `Senha resetada para a matrícula ${targetProfile.matricula}`,
+        tempPassword,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Create user error:', error)
+    console.error('Reset password error:', error)
     return new Response(
       JSON.stringify({ error: (error as Error).message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

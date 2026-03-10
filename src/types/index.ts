@@ -93,6 +93,7 @@ export interface AppState {
   rejectOvertime: (requestId: string) => Promise<boolean>
   createUser: (name: string) => Promise<number | null>
   deleteUser: (userId: string) => Promise<boolean>
+  resetUserPassword: (userId: string) => Promise<boolean>
   bulkAssignShifts: (
     userIds: string[],
     days: number[],

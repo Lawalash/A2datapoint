@@ -11,10 +11,6 @@ import type {
   PunchResult,
 } from '@/types'
 
-
-// ============================================================
-// Store
-// ============================================================
 export const useStore = create<AppState>((set, get) => ({
   // ── Estado inicial ──────────────────────────────────────────
   currentUser: null,
@@ -32,20 +28,15 @@ export const useStore = create<AppState>((set, get) => ({
   login: async (matricula: number, password: string): Promise<AuthResult> => {
     set({ isAuthLoading: true })
     try {
-      // Email sintético para Supabase Auth
       const email = `${matricula}@a2datapoint.internal`
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error || !data.user) {
         set({ isAuthLoading: false })
         return { success: false, error: 'Matrícula ou senha incorretos.' }
       }
 
-      // Buscar perfil
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -70,7 +61,6 @@ export const useStore = create<AppState>((set, get) => ({
         isAuthLoading: false,
       })
 
-      // Pré-carregar dados se admin
       if (profile.role === 'admin') {
         get().fetchProfiles()
         get().fetchTimeLogs()
@@ -103,11 +93,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser) return false
 
     try {
-      // Atualizar password no Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({ password })
       if (authError) throw authError
 
-      // Atualizar is_first_access no perfil
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ is_first_access: false })
@@ -116,10 +104,16 @@ export const useStore = create<AppState>((set, get) => ({
       if (profileError) throw profileError
 
       const updatedUser = { ...currentUser, is_first_access: false }
-      set({
-        currentUser: updatedUser,
-        currentView: 'employee-dashboard',
-      })
+      const nextView: AppView = currentUser.role === 'admin' ? 'admin' : 'employee-dashboard'
+
+      set({ currentUser: updatedUser, currentView: nextView })
+
+      if (currentUser.role === 'admin') {
+        get().fetchProfiles()
+        get().fetchTimeLogs()
+        get().fetchOvertimeRequests()
+        get().fetchShifts()
+      }
 
       return true
     } catch (err) {
@@ -131,7 +125,6 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Navigation ──────────────────────────────────────────────
 
   navigateTo: (view: AppView) => set({ currentView: view }),
-
   navigateAdmin: (view: AdminView) => set({ adminView: view }),
 
   // ── Time Registration ────────────────────────────────────────
@@ -143,7 +136,6 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isLoading: true })
 
     try {
-      // 1. Validar horário via RPC
       const { data: validationResult } = await supabase.rpc('validate_punch_time', {
         p_user_id: currentUser.id,
         p_type: type,
@@ -152,36 +144,29 @@ export const useStore = create<AppState>((set, get) => ({
       const flag: TimeLog['flag'] =
         validationResult === 'he_not_registered' ? 'he_not_registered' : null
 
-      // 2. Upload da foto (se fornecida)
       let photoUrl: string | null = null
       if (photoDataUrl) {
         photoUrl = await uploadPhoto(currentUser.id, photoDataUrl)
       }
 
-      // 3. Inserir log
       const { data: newLog, error } = await supabase
         .from('time_logs')
-        .insert({
-          user_id: currentUser.id,
-          type,
-          photo_url: photoUrl,
-          flag,
-        })
+        .insert({ user_id: currentUser.id, type, photo_url: photoUrl, flag })
         .select()
         .single()
 
       if (error) throw error
 
-      // Atualizar cache local
-      set((state) => ({
-        timeLogs: [newLog, ...state.timeLogs],
-        isLoading: false,
-      }))
+      set((state) => ({ timeLogs: [newLog, ...state.timeLogs], isLoading: false }))
 
+      const timeStr = new Date(newLog.timestamp).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
       const message =
         type === 'in'
-          ? `Entrada registrada com sucesso às ${new Date(newLog.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-          : `Saída registrada com sucesso às ${new Date(newLog.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+          ? `Entrada registrada com sucesso às ${timeStr}`
+          : `Saída registrada com sucesso às ${timeStr}`
 
       return { success: true, flag, message, log: newLog }
     } catch (err) {
@@ -194,28 +179,20 @@ export const useStore = create<AppState>((set, get) => ({
   requestOvertime: async (durationMinutes: number): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser) return false
-    if (durationMinutes > 105) return false // máximo 1h45
+    if (durationMinutes > 105) return false
 
     try {
       const today = new Date().toISOString().split('T')[0]
 
       const { data, error } = await supabase
         .from('overtime_requests')
-        .insert({
-          user_id: currentUser.id,
-          date: today,
-          duration_minutes: durationMinutes,
-          status: 'pending',
-        })
+        .insert({ user_id: currentUser.id, date: today, duration_minutes: durationMinutes, status: 'pending' })
         .select()
         .single()
 
       if (error) throw error
 
-      set((state) => ({
-        overtimeRequests: [data, ...state.overtimeRequests],
-      }))
-
+      set((state) => ({ overtimeRequests: [data, ...state.overtimeRequests] }))
       return true
     } catch (err) {
       console.error('Erro ao solicitar HE:', err)
@@ -230,7 +207,6 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      // Verificar se é D-0, D-1 ou D-2
       const request = get().overtimeRequests.find((r) => r.id === requestId)
       if (!request) return false
 
@@ -238,31 +214,20 @@ export const useStore = create<AppState>((set, get) => ({
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const diffDays = Math.floor((today.getTime() - requestDate.getTime()) / 86400000)
-
-      if (diffDays > 2) {
-        console.warn('Aprovação apenas permitida para D-0, D-1 e D-2')
-        return false
-      }
+      if (diffDays > 2) return false
 
       const { error } = await supabase
         .from('overtime_requests')
-        .update({
-          status: 'approved',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: currentUser.id,
-        })
+        .update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: currentUser.id })
         .eq('id', requestId)
 
       if (error) throw error
 
       set((state) => ({
         overtimeRequests: state.overtimeRequests.map((r) =>
-          r.id === requestId
-            ? { ...r, status: 'approved', reviewed_at: new Date().toISOString() }
-            : r
+          r.id === requestId ? { ...r, status: 'approved', reviewed_at: new Date().toISOString() } : r
         ),
       }))
-
       return true
     } catch (err) {
       console.error('Erro ao aprovar HE:', err)
@@ -277,23 +242,16 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const { error } = await supabase
         .from('overtime_requests')
-        .update({
-          status: 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: currentUser.id,
-        })
+        .update({ status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: currentUser.id })
         .eq('id', requestId)
 
       if (error) throw error
 
       set((state) => ({
         overtimeRequests: state.overtimeRequests.map((r) =>
-          r.id === requestId
-            ? { ...r, status: 'rejected', reviewed_at: new Date().toISOString() }
-            : r
+          r.id === requestId ? { ...r, status: 'rejected', reviewed_at: new Date().toISOString() } : r
         ),
       }))
-
       return true
     } catch (err) {
       console.error('Erro ao rejeitar HE:', err)
@@ -306,17 +264,6 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser || currentUser.role !== 'admin') return null
 
     try {
-      // Calcular próxima matrícula
-      const { data: maxProfile } = await supabase
-        .from('profiles')
-        .select('matricula')
-        .order('matricula', { ascending: false })
-        .limit(1)
-        .single()
-
-      const nextMatricula = (maxProfile?.matricula ?? 0) + 1
-      const email = `${nextMatricula}@a2datapoint.internal`
-
       const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/create-user`,
@@ -326,7 +273,7 @@ export const useStore = create<AppState>((set, get) => ({
             Authorization: `Bearer ${session?.access_token ?? ''}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ name, email }),
+          body: JSON.stringify({ name }),
         }
       )
 
@@ -346,12 +293,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      // Soft delete: apenas remover perfil (cascata remove dados relacionados)
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId)
-
+      const { error } = await supabase.from('profiles').delete().eq('id', userId)
       if (error) throw error
 
       set((state) => ({
@@ -360,10 +302,49 @@ export const useStore = create<AppState>((set, get) => ({
         timeLogs: state.timeLogs.filter((l) => l.user_id !== userId),
         overtimeRequests: state.overtimeRequests.filter((r) => r.user_id !== userId),
       }))
-
       return true
     } catch (err) {
       console.error('Erro ao deletar utilizador:', err)
+      return false
+    }
+  },
+
+  resetUserPassword: async (userId: string): Promise<boolean> => {
+    const { currentUser } = get()
+    if (!currentUser || currentUser.role !== 'admin') return false
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/reset-password`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token ?? ''}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId }),
+        }
+      )
+
+      if (!response.ok) throw new Error('Falha ao resetar senha')
+
+      // Marcar is_first_access = true para forçar redefinição
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_first_access: true })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      set((state) => ({
+        profiles: state.profiles.map((p) =>
+          p.id === userId ? { ...p, is_first_access: true } : p
+        ),
+      }))
+      return true
+    } catch (err) {
+      console.error('Erro ao resetar senha:', err)
       return false
     }
   },
@@ -379,9 +360,7 @@ export const useStore = create<AppState>((set, get) => ({
         p_start_time: startTime,
         p_end_time: endTime,
       })
-
       if (error) throw error
-
       await get().fetchShifts()
       return true
     } catch (err) {
@@ -397,10 +376,7 @@ export const useStore = create<AppState>((set, get) => ({
       .from('profiles')
       .select('*')
       .order('matricula', { ascending: true })
-
-    if (!error && data) {
-      set({ profiles: data })
-    }
+    if (!error && data) set({ profiles: data })
   },
 
   fetchShifts: async () => {
@@ -408,10 +384,7 @@ export const useStore = create<AppState>((set, get) => ({
       .from('shifts')
       .select('*')
       .order('day_of_week', { ascending: true })
-
-    if (!error && data) {
-      set({ shifts: data })
-    }
+    if (!error && data) set({ shifts: data })
   },
 
   fetchTimeLogs: async (fromDate?: Date) => {
@@ -428,9 +401,7 @@ export const useStore = create<AppState>((set, get) => ({
       .order('timestamp', { ascending: false })
       .limit(500)
 
-    if (!error && data) {
-      set({ timeLogs: data as TimeLog[] })
-    }
+    if (!error && data) set({ timeLogs: data as TimeLog[] })
   },
 
   fetchOvertimeRequests: async () => {
@@ -440,12 +411,10 @@ export const useStore = create<AppState>((set, get) => ({
       .order('created_at', { ascending: false })
       .limit(200)
 
-    if (!error && data) {
-      set({ overtimeRequests: data as OvertimeRequest[] })
-    }
+    if (!error && data) set({ overtimeRequests: data as OvertimeRequest[] })
   },
 
-  // ── Selectors ─────────────────────────────────────────────────
+  // ── Selectors ────────────────────────────────────────────────
 
   getTodayLogs: () => {
     const today = new Date().toDateString()
@@ -481,7 +450,7 @@ export const useStore = create<AppState>((set, get) => ({
     get().overtimeRequests.filter((r) => r.status === 'pending').length,
 }))
 
-// ── Inicialização: restaurar sessão ───────────────────────────
+// ── Restaurar sessão ──────────────────────────────────────────
 supabase.auth.getSession().then(async ({ data: { session } }) => {
   if (session?.user) {
     const { data: profile } = await supabase
@@ -515,7 +484,6 @@ supabase.auth.getSession().then(async ({ data: { session } }) => {
   }
 })
 
-// Escutar mudanças de auth
 supabase.auth.onAuthStateChange(async (event) => {
   if (event === 'SIGNED_OUT') {
     useStore.setState({

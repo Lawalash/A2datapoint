@@ -16,7 +16,6 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 interface NavItem {
@@ -138,7 +137,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     : 'text-white/60 hover:bg-white/10 hover:text-white'
                 )}
               >
-                <Icon className="w-4.5 h-4.5 shrink-0" />
+                <Icon className="w-4 h-4 shrink-0" />
                 <span className="flex-1 text-left">{item.label}</span>
                 {item.badge ? (
                   <Badge className="bg-[#ef476f] text-white text-xs h-5 min-w-5 px-1.5">
@@ -167,15 +166,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* ── MOBILE SIDEBAR OVERLAY ──────────────────────────────── */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setSidebarOpen(false)}
           />
-
-          {/* Drawer */}
           <aside className="relative z-10 w-72 bg-[#0f2d5c] h-full flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-[#00b4d8] rounded-lg flex items-center justify-center">
@@ -194,7 +189,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </button>
             </div>
 
-            {/* User */}
             <div className="px-4 py-3 border-b border-white/10">
               <div className="flex items-center gap-3 bg-white/10 rounded-xl px-3 py-2.5">
                 <div className="w-8 h-8 rounded-full bg-[#00b4d8]/30 flex items-center justify-center">
@@ -209,7 +203,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               </div>
             </div>
 
-            {/* Nav */}
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
               {navItems.map((item) => {
                 const Icon = item.icon
@@ -225,7 +218,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         : 'text-white/60 hover:bg-white/10 hover:text-white'
                     )}
                   >
-                    <Icon className="w-4.5 h-4.5 shrink-0" />
+                    <Icon className="w-4 h-4 shrink-0" />
                     <span className="flex-1 text-left">{item.label}</span>
                     {item.badge ? (
                       <Badge className="bg-[#ef476f] text-white text-xs h-5 px-1.5">
@@ -273,13 +266,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
         </header>
 
-        {/* Scrollable content */}
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
 
         {/* ── BOTTOM NAV (mobile only) ─────────────────────────── */}
-        <nav className="lg:hidden flex items-center bg-white border-t border-gray-200 shrink-0 safe-area-pb">
+        <nav className="lg:hidden flex items-center bg-white border-t border-gray-200 shrink-0">
           {navItems.slice(0, 5).map((item) => {
             const Icon = item.icon
             const isActive = adminView === item.id

@@ -4,7 +4,7 @@ import { useStore } from '@/hooks/useStore'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import {
-  Camera, LogOut, Clock, CheckCircle2, AlertCircle,
+  Camera, LogOut, Clock, CheckCircle2,
   X, Calendar, Timer, Maximize2, Minimize2, WifiOff
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -14,17 +14,14 @@ import { toast } from 'sonner'
 import type { PunchResult } from '@/types'
 
 // ── Verificar janela de ponto ───────────────────────────────────
-function isPunchAllowed(
-  scheduledTime: string | undefined,
-  type: 'in' | 'out'
-): boolean {
-  if (!scheduledTime) return true // sem escala = sempre permitido
+function isPunchAllowed(scheduledTime: string | undefined): boolean {
+  if (!scheduledTime) return true
   const [h, m] = scheduledTime.split(':').map(Number)
   const now = new Date()
   const scheduled = new Date()
   scheduled.setHours(h, m, 0, 0)
   const diff = (now.getTime() - scheduled.getTime()) / 60000
-  return diff >= -3 && diff <= 120 // -3min até +2h (HE incluída)
+  return diff >= -3 && diff <= 120
 }
 
 export function EmployeeDashboard() {
@@ -46,17 +43,14 @@ export function EmployeeDashboard() {
   const shiftToday = getUserShiftToday()
   const nextType: 'in' | 'out' = lastLog?.type === 'in' ? 'out' : 'in'
 
-  // Relógio em tempo real
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(interval)
   }, [])
 
-  // Verificar se ponto está disponível
   const scheduledTime = nextType === 'in' ? shiftToday?.start_time : shiftToday?.end_time
-  const punchAllowed = isPunchAllowed(scheduledTime, nextType)
+  const punchAllowed = isPunchAllowed(scheduledTime)
 
-  // Fullscreen API
   const toggleFullscreen = useCallback(async () => {
     try {
       if (!document.fullscreenElement) {
@@ -67,7 +61,6 @@ export function EmployeeDashboard() {
         setIsFullscreen(false)
       }
     } catch {
-      // Fallback: simular fullscreen com CSS
       setIsFullscreen((prev) => !prev)
     }
   }, [])
@@ -78,7 +71,6 @@ export function EmployeeDashboard() {
     return () => document.removeEventListener('fullscreenchange', handler)
   }, [])
 
-  // Câmera
   const startCamera = async () => {
     setShowCamera(true)
     setCapturedPhoto(null)
@@ -116,8 +108,6 @@ export function EmployeeDashboard() {
     canvas.getContext('2d')?.drawImage(video, 0, 0)
     const photoData = canvas.toDataURL('image/jpeg', 0.85)
     setCapturedPhoto(photoData)
-
-    // Parar stream
     const stream = video.srcObject as MediaStream
     stream?.getTracks().forEach((t) => t.stop())
   }
@@ -178,19 +168,16 @@ export function EmployeeDashboard() {
               />
               <canvas ref={canvasRef} className="hidden" />
 
-              {/* Face guide oval */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-52 h-64 border-2 border-white/60 rounded-full" />
               </div>
 
-              {/* Instruction */}
               <div className="absolute top-6 inset-x-4 text-center">
                 <div className="inline-block bg-black/60 backdrop-blur-sm text-white text-sm font-medium px-4 py-2 rounded-full">
                   Posicione seu rosto no oval
                 </div>
               </div>
 
-              {/* Controls */}
               <div className="absolute bottom-10 inset-x-0 flex justify-center">
                 <button
                   onClick={capturePhoto}
@@ -200,7 +187,6 @@ export function EmployeeDashboard() {
                 </button>
               </div>
 
-              {/* Close */}
               <button
                 onClick={() => setShowCamera(false)}
                 className="absolute top-6 right-4 w-10 h-10 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white"
@@ -223,7 +209,7 @@ export function EmployeeDashboard() {
                     <Button
                       variant="outline"
                       className="flex-1 h-14 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                      onClick={() => { setCapturedPhoto(null) }}
+                      onClick={() => setCapturedPhoto(null)}
                     >
                       <X className="w-5 h-5 mr-2" />
                       Tirar outra
@@ -289,7 +275,6 @@ export function EmployeeDashboard() {
             <span>1h 45min</span>
           </div>
 
-          {/* Quick options */}
           <div className="flex gap-2 mb-7">
             {[30, 60, 90, 105].map((min) => (
               <button
@@ -310,13 +295,13 @@ export function EmployeeDashboard() {
           <div className="flex gap-3">
             <Button
               variant="outline"
-              className="flex-1 h-13 border-gray-200"
+              className="flex-1 h-12 border-gray-200"
               onClick={() => setShowOvertime(false)}
             >
               Cancelar
             </Button>
             <Button
-              className="flex-1 h-13 bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+              className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white font-semibold"
               onClick={handleOvertimeRequest}
             >
               Enviar
@@ -337,7 +322,7 @@ export function EmployeeDashboard() {
       )}
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 pt-safe-top pt-4 pb-3">
+      <div className="flex items-center justify-between px-5 pt-4 pb-3">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <div className="w-6 h-6 bg-[#00b4d8] rounded-lg flex items-center justify-center">
@@ -352,11 +337,10 @@ export function EmployeeDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Fullscreen toggle */}
           <button
             onClick={toggleFullscreen}
             className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white/70 hover:bg-white/20 transition-colors"
-            title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia (bloqueia navegação)'}
+            title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
@@ -383,7 +367,6 @@ export function EmployeeDashboard() {
 
       {/* Clock */}
       <div className="flex-1 flex flex-col items-center justify-center px-6">
-        {/* Time display */}
         <div className="text-center mb-10">
           <p className="text-6xl font-black text-white font-mono tracking-tight tabular-nums">
             {format(currentTime, 'HH:mm')}
@@ -395,12 +378,14 @@ export function EmployeeDashboard() {
 
         {/* Main punch button */}
         <div className="relative mb-8">
-          {/* Pulse ring */}
           {punchAllowed && (
-            <div className={cn(
-              'absolute inset-0 rounded-full animate-ping opacity-20',
-              nextType === 'in' ? 'bg-emerald-400' : 'bg-rose-400'
-            )} style={{ animationDuration: '2s' }} />
+            <div
+              className={cn(
+                'absolute inset-0 rounded-full animate-ping opacity-20',
+                nextType === 'in' ? 'bg-emerald-400' : 'bg-rose-400'
+              )}
+              style={{ animationDuration: '2s' }}
+            />
           )}
 
           <button
@@ -439,13 +424,15 @@ export function EmployeeDashboard() {
           </button>
         </div>
 
-        {/* Last record status */}
+        {/* Last record */}
         {lastLog && (
           <div className="flex items-center gap-2 mb-8">
-            <div className={cn(
-              'w-2 h-2 rounded-full',
-              lastLog.type === 'in' ? 'bg-emerald-400' : 'bg-rose-400'
-            )} />
+            <div
+              className={cn(
+                'w-2 h-2 rounded-full',
+                lastLog.type === 'in' ? 'bg-emerald-400' : 'bg-rose-400'
+              )}
+            />
             <p className="text-white/50 text-sm">
               Último: {lastLog.type === 'in' ? 'Entrada' : 'Saída'} às{' '}
               {format(new Date(lastLog.timestamp), 'HH:mm')}
@@ -461,7 +448,7 @@ export function EmployeeDashboard() {
         {/* Overtime button */}
         <button
           onClick={() => setShowOvertime(true)}
-          className="w-full max-w-xs h-14 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-white font-semibold transition-all active:scale-98"
+          className="w-full max-w-xs h-14 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-white font-semibold transition-all active:scale-95"
         >
           <Clock className="w-5 h-5 text-amber-400" />
           Solicitar Hora Extra / Plantão
@@ -469,7 +456,7 @@ export function EmployeeDashboard() {
       </div>
 
       {/* Footer */}
-      <div className="pb-safe-bottom pb-4 text-center">
+      <div className="pb-4 text-center">
         <p className="text-white/20 text-xs">
           Mat. {currentUser?.matricula} · A2dataPOINT v2.0
         </p>
