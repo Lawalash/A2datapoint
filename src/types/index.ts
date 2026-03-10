@@ -1,77 +1,114 @@
-// Tipos do Sistema de Controle de Ponto
+// src/types/index.ts
 
-export interface User {
-  id: number;
-  name: string;
-  password?: string;
-  isFirstAccess: boolean;
-  role: 'employee' | 'admin';
-  createdAt: Date;
+export type AppView = 'login' | 'first-access' | 'employee-dashboard' | 'admin'
+export type AdminView = 'dashboard' | 'users' | 'shifts' | 'monitoring' | 'overtime' | 'reports' | 'storage'
+
+export interface Profile {
+  id: string
+  matricula: number
+  name: string
+  role: 'admin' | 'employee'
+  is_first_access: boolean
+  created_at: string
+  updated_at: string
 }
 
-export interface TimeRecord {
-  id: string;
-  userId: number;
-  userName: string;
-  timestamp: Date;
-  type: 'in' | 'out';
-  photo?: string;
+export interface Shift {
+  id: number
+  user_id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TimeLog {
+  id: string
+  user_id: string
+  timestamp: string
+  type: 'in' | 'out'
+  photo_url: string | null
+  flag: 'he_not_registered' | 'late' | 'early_exit' | null
+  note: string | null
+  log_date: string
+  created_at: string
+  profile?: { name: string; matricula: number }
 }
 
 export interface OvertimeRequest {
-  id: string;
-  userId: number;
-  userName: string;
-  date: Date;
-  duration: number; // em minutos
-  status: 'pending' | 'approved' | 'rejected';
-  requestedAt: Date;
+  id: string
+  user_id: string
+  date: string
+  duration_minutes: number
+  status: 'pending' | 'approved' | 'rejected'
+  note: string | null
+  requested_at: string
+  reviewed_at: string | null
+  reviewed_by: string | null
+  created_at: string
+  profile?: { name: string; matricula: number }
 }
 
-export interface WorkSchedule {
-  userId: number;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
+export interface AuthResult {
+  success: boolean
+  error?: string
+  user?: Profile
+  isFirstAccess?: boolean
 }
 
-export interface DailyReport {
-  userId: number;
-  userName: string;
-  date: Date;
-  scheduledStart: string;
-  scheduledEnd: string;
-  actualFirstIn?: Date;
-  actualLastOut?: Date;
-  overtimeApproved: number;
-  overtimePending: number;
-  status: 'present' | 'absent' | 'late' | 'early_exit';
+export interface PunchResult {
+  success: boolean
+  message: string
+  flag?: TimeLog['flag']
+  log?: TimeLog
 }
-
-export type View = 'login' | 'first-access' | 'employee-dashboard' | 'admin-dashboard' | 'admin-users' | 'admin-monitoring' | 'admin-overtime' | 'admin-reports' | 'admin-storage';
 
 export interface AppState {
-  currentUser: User | null;
-  currentView: View;
-  users: User[];
-  timeRecords: TimeRecord[];
-  overtimeRequests: OvertimeRequest[];
-  workSchedules: WorkSchedule[];
-  
-  // Actions
-  login: (id: number, password: string) => boolean;
-  logout: () => void;
-  setFirstAccessComplete: (id: number, password: string) => void;
-  registerTime: (userId: number, type: 'in' | 'out', photo?: string) => void;
-  requestOvertime: (userId: number, duration: number) => void;
-  approveOvertime: (requestId: string) => void;
-  rejectOvertime: (requestId: string) => void;
-  createUser: (name: string) => number;
-  deleteUser: (id: number) => void;
-  getNextUserId: () => number;
-  getTodayRecords: () => TimeRecord[];
-  getOvertimeRequestsByDate: (date: Date) => OvertimeRequest[];
-  getStorageUsage: () => number;
-  clearOldPhotos: () => void;
-  navigateTo: (view: View) => void;
+  currentUser: Profile | null
+  currentView: AppView
+  adminView: AdminView
+  profiles: Profile[]
+  shifts: Shift[]
+  timeLogs: TimeLog[]
+  overtimeRequests: OvertimeRequest[]
+  isLoading: boolean
+  isAuthLoading: boolean
+
+  // Auth
+  login: (matricula: number, password: string) => Promise<AuthResult>
+  logout: () => Promise<void>
+  setFirstAccessComplete: (password: string) => Promise<boolean>
+
+  // Navigation
+  navigateTo: (view: AppView) => void
+  navigateAdmin: (view: AdminView) => void
+
+  // Time Registration
+  registerTime: (type: 'in' | 'out', photoDataUrl?: string) => Promise<PunchResult>
+  requestOvertime: (durationMinutes: number) => Promise<boolean>
+
+  // Admin Actions
+  approveOvertime: (requestId: string) => Promise<boolean>
+  rejectOvertime: (requestId: string) => Promise<boolean>
+  createUser: (name: string) => Promise<number | null>
+  deleteUser: (userId: string) => Promise<boolean>
+  bulkAssignShifts: (
+    userIds: string[],
+    days: number[],
+    startTime: string,
+    endTime: string
+  ) => Promise<boolean>
+
+  // Data Fetching
+  fetchProfiles: () => Promise<void>
+  fetchShifts: () => Promise<void>
+  fetchTimeLogs: (fromDate?: Date) => Promise<void>
+  fetchOvertimeRequests: () => Promise<void>
+
+  // Selectors
+  getTodayLogs: () => TimeLog[]
+  getUserTodayLastLog: () => TimeLog | null
+  getUserShiftToday: () => Shift | null
+  getPendingOvertimeCount: () => number
 }

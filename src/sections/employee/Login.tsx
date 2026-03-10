@@ -1,42 +1,47 @@
-import { useState } from 'react';
-import { useStore } from '@/hooks/useStore';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserCog, User, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+// src/sections/employee/Login.tsx
+import { useState } from 'react'
+import { useStore } from '@/hooks/useStore'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { UserCog, User, AlertCircle, Loader2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export function EmployeeLogin() {
-  const [userId, setUserId] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const login = useStore(state => state.login);
-  const navigateTo = useStore(state => state.navigateTo);
+  const [userId, setUserId] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    const id = parseInt(userId);
+  const login = useStore((state) => state.login)
+  const navigateTo = useStore((state) => state.navigateTo)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    const id = parseInt(userId)
     if (isNaN(id) || id <= 0) {
-      setError('ID inválido. Digite um número válido.');
-      return;
+      setError('Matrícula inválida. Digite um número válido.')
+      return
     }
 
-    const success = login(id, password);
-    if (!success) {
-      setError('ID ou senha incorretos.');
+    setIsLoading(true)
+    const result = await login(id, password)
+    setIsLoading(false)
+
+    if (!result.success) {
+      setError(result.error ?? 'Matrícula ou senha incorretos.')
     }
-  };
+  }
 
   const handleAdminAccess = () => {
-    navigateTo('admin-dashboard');
-  };
+    navigateTo('admin')
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 flex flex-col items-center justify-center p-4">
-      {/* Header com logo */}
       <div className="mb-8 text-center">
         <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
           <User className="w-10 h-10 text-blue-600" />
@@ -55,7 +60,7 @@ export function EmployeeLogin() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="userId" className="text-base font-medium text-gray-700">
-                Matrícula (ID)
+                Matrícula
               </Label>
               <Input
                 id="userId"
@@ -89,11 +94,19 @@ export function EmployeeLogin() {
               </Alert>
             )}
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
+              disabled={isLoading}
             >
-              Entrar
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  A entrar...
+                </>
+              ) : (
+                'Entrar'
+              )}
             </Button>
           </form>
 
@@ -113,5 +126,5 @@ export function EmployeeLogin() {
         Toque nos campos para digitar
       </p>
     </div>
-  );
+  )
 }

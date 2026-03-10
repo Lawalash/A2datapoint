@@ -1,242 +1,235 @@
-import { useState } from 'react';
-import { useStore } from '@/hooks/useStore';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { 
-  ArrowLeft, 
-  Trash2, 
-  Image,
-  CheckCircle2,
-  HardDrive,
-  AlertTriangle
-} from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import type { TimeRecord } from '@/types';
+// src/sections/admin/Storage.tsx
+import { useState, useEffect, useCallback } from 'react'
+import { useStore } from '@/hooks/useStore'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import {
+  Trash2, Image, CheckCircle2, HardDrive,
+  AlertTriangle, Loader2, RefreshCw
+} from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { triggerPhotoCleanup } from '@/lib/supabase'
+import { formatDistanceToNow } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import type { TimeLog } from '@/types'
+
+const STORAGE_LIMIT_MB = 500
 
 export function Storage() {
-  const navigateTo = useStore((state) => state.navigateTo);
-  const timeRecords = useStore((state) => state.timeRecords);
-  const getStorageUsage = useStore((state) => state.getStorageUsage);
-  const clearOldPhotos = useStore((state) => state.clearOldPhotos);
+  const timeLogs = useStore((state) => state.timeLogs)
+  const fetchTimeLogs = useStore((state) => state.fetchTimeLogs)
 
-  const [feedback, setFeedback] = useState<{type: 'success' | 'error', message: string} | null>(null);
-  const [clearing, setClearing] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [clearing, setClearing] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const storageUsed = getStorageUsage();
-  const storageLimit = 500; // 500MB limite simulado
-  const usagePercentage = Math.min((storageUsed / storageLimit) * 100, 100);
+  useEffect(() => {
+    const from = new Date()
+    from.setDate(from.getDate() - 30)
+    fetchTimeLogs(from)
+  }, [fetchTimeLogs])
 
-  // Conta fotos por período
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const refresh = useCallback(async () => {
+    setIsRefreshing(true)
+    const from = new Date()
+    from.setDate(from.getDate() - 30)
+    await fetchTimeLogs(from)
+    setIsRefreshing(false)
+  }, [fetchTimeLogs])
 
-  const photosWithData = timeRecords.filter((r: TimeRecord) => r.photo);
-  const recentPhotos = photosWithData.filter((r: TimeRecord) => new Date(r.timestamp) >= sevenDaysAgo);
-  const oldPhotos = photosWithData.filter((r: TimeRecord) => new Date(r.timestamp) < sevenDaysAgo);
+  const now = new Date()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
-  const handleClearOldPhotos = async () => {
-    setClearing(true);
-    
-    // Simula delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    clearOldPhotos();
-    setFeedback({
-      type: 'success',
-      message: `${oldPhotos.length} fotos antigas removidas com sucesso!`
-    });
-    
-    setClearing(false);
-    setTimeout(() => setFeedback(null), 3000);
-  };
+  const withPhoto = timeLogs.filter((r: TimeLog) => r.photo_url)
+  const recentPhotos = withPhoto.filter((r: TimeLog) => new Date(r.timestamp) >= sevenDaysAgo)
+  const oldPhotos = withPhoto.filter((r: TimeLog) => new Date(r.timestamp) < sevenDaysAgo)
 
-  const getUsageStatus = (percentage: number) => {
-    if (percentage < 50) return { text: 'Normal', color: 'text-green-600' };
-    if (percentage < 80) return { text: 'Atenção', color: 'text-yellow-600' };
-    return { text: 'Crítico', color: 'text-red-600' };
-  };
+  // Estimate: ~2 MB per photo
+  const estimatedMB = withPhoto.length * 2
+  const usagePercent = Math.min((estimatedMB / STORAGE_LIMIT_MB) * 100, 100)
 
-  const status = getUsageStatus(usagePercentage);
+  const getStatus = (pct: number) => {
+    if (pct < 50) return { text: 'Normal', color: 'text-green-600' }
+    if (pct < 80) return { text: 'Atenção', color: 'text-yellow-600' }
+    return { text: 'Crítico', color: 'text-red-600' }
+  }
+
+  const status = getStatus(usagePercent)
+
+  const handleClear = async () => {
+    setClearing(true)
+    try {
+      const result = await triggerPhotoCleanup()
+      setFeedback({ type: 'success', message: result.message })
+      await refresh()
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao limpar fotos.',
+      })
+    }
+    setClearing(false)
+    setTimeout(() => setFeedback(null), 5000)
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-red-700 to-red-800 p-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigateTo('admin-dashboard')}
-            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center active:bg-white/30"
-          >
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-          <div>
-            <p className="text-red-200 text-sm">Voltar ao Dashboard</p>
-            <h1 className="text-white font-bold text-xl">Armazenamento</h1>
-          </div>
+    <div className="p-4 lg:p-8 max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-[#0f2d5c]">Armazenamento</h1>
+          <p className="text-sm text-gray-500 mt-1">Gerir fotos dos registros de ponto</p>
         </div>
+        <button
+          onClick={refresh}
+          disabled={isRefreshing}
+          className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
-      {/* Feedback */}
       {feedback && (
-        <div className="px-4 pt-4">
-          <Alert className="bg-green-100 border-green-300">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <AlertDescription className="text-green-800">
-              {feedback.message}
-            </AlertDescription>
-          </Alert>
-        </div>
+        <Alert
+          className={`mb-4 ${
+            feedback.type === 'success' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'
+          }`}
+        >
+          <CheckCircle2 className={`h-4 w-4 ${feedback.type === 'success' ? 'text-green-600' : 'text-red-600'}`} />
+          <AlertDescription className={feedback.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+            {feedback.message}
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* Card principal de uso */}
-      <div className="p-4">
-        <Card className="bg-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 bg-red-100 rounded-xl flex items-center justify-center">
-                  <HardDrive className="w-7 h-7 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-gray-500 text-sm">Uso de Armazenamento</p>
-                  <p className="text-2xl font-bold text-gray-800">
-                    {storageUsed} <span className="text-lg text-gray-500">/ {storageLimit} MB</span>
-                  </p>
-                </div>
+      {/* Usage card */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 bg-red-100 rounded-xl flex items-center justify-center">
+                <HardDrive className="w-7 h-7 text-red-600" />
               </div>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status.color} bg-opacity-10`}>
-                {status.text}
-              </span>
+              <div>
+                <p className="text-gray-500 text-sm">Uso estimado</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {estimatedMB} <span className="text-lg text-gray-400">/ {STORAGE_LIMIT_MB} MB</span>
+                </p>
+              </div>
             </div>
+            <span className={`text-sm font-semibold ${status.color}`}>{status.text}</span>
+          </div>
+          <Progress value={usagePercent} className="h-2.5" />
+          <p className="text-gray-400 text-xs mt-2 text-right">{usagePercent.toFixed(1)}% utilizado</p>
+        </CardContent>
+      </Card>
 
-            <Progress 
-              value={usagePercentage} 
-              className="h-3"
-            />
-            
-            <p className="text-gray-500 text-sm mt-2 text-right">
-              {usagePercentage.toFixed(1)}% utilizado
-            </p>
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <Image className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-gray-500 text-xs">Últimos 7 dias</p>
+              <p className="text-xl font-bold text-gray-800">{recentPhotos.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <Image className="w-5 h-5 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-gray-500 text-xs">Mais de 7 dias</p>
+              <p className="text-xl font-bold text-gray-800">{oldPhotos.length}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Estatísticas de fotos */}
-      <div className="px-4 pb-4">
-        <h2 className="text-gray-700 font-semibold mb-3">Estatísticas de Fotos</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <Image className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Últimos 7 dias</p>
-                  <p className="text-xl font-bold text-gray-800">{recentPhotos.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <Image className="w-5 h-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Mais de 7 dias</p>
-                  <p className="text-xl font-bold text-gray-800">{oldPhotos.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Alerta */}
-      {usagePercentage > 80 && (
-        <div className="px-4 pb-4">
-          <Card className="bg-red-50 border-red-200">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-                <div>
-                  <p className="font-medium text-red-800">Armazenamento Quase Cheio</p>
-                  <p className="text-sm text-red-700">
-                    O armazenamento está acima de 80%. Recomendamos limpar fotos antigas.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Warning */}
+      {usagePercent > 80 && (
+        <Card className="bg-red-50 border-red-200 mb-6">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-red-800">Armazenamento Quase Cheio</p>
+              <p className="text-sm text-red-700">Recomendamos limpar fotos antigas.</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Ação de limpar */}
-      <div className="px-4 pb-6">
-        <Card className="bg-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-gray-500" />
-              Limpar Fotos Antigas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600 text-sm mb-4">
-              Remove as fotos de registros com mais de 7 dias para liberar espaço.
-              <br />
-              <strong>{oldPhotos.length} fotos</strong> serão removidas ({oldPhotos.length * 2} MB).
-            </p>
-            
-            <Button
-              variant="destructive"
-              className="w-full h-12"
-              onClick={handleClearOldPhotos}
-              disabled={clearing || oldPhotos.length === 0}
-            >
-              <Trash2 className="w-5 h-5 mr-2" />
-              {clearing ? 'Limpando...' : 'Limpar Fotos Antigas (> 7 dias)'}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Clear action */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-gray-500" />
+            Limpar Fotos Antigas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500 text-sm mb-4">
+            Remove fotos com mais de 7 dias do storage. Os registros de texto são mantidos.
+            <br />
+            <strong className="text-gray-700">{oldPhotos.length} foto(s)</strong> serão removidas
+            (~{oldPhotos.length * 2} MB liberados).
+          </p>
+          <Button
+            variant="destructive"
+            className="w-full h-12"
+            onClick={handleClear}
+            disabled={clearing || oldPhotos.length === 0}
+          >
+            {clearing ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Limpando...</>
+            ) : (
+              <><Trash2 className="w-4 h-4 mr-2" />Limpar Fotos Antigas (&gt; 7 dias)</>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
-      {/* Lista de fotos recentes */}
-      <div className="px-4 pb-6">
-        <h2 className="text-gray-700 font-semibold mb-3">Fotos Recentes</h2>
-        <div className="space-y-2">
-          {photosWithData.slice(0, 5).map((record: TimeRecord) => (
-            <Card key={record.id} className="bg-white">
-              <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                    <Image className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800 text-sm">{record.userName}</p>
-                    <p className="text-gray-500 text-xs">
-                      {formatDistanceToNow(new Date(record.timestamp), { 
-                        addSuffix: true,
-                        locale: ptBR 
-                      })}
+      {/* Recent photos list */}
+      {withPhoto.length > 0 && (
+        <>
+          <h2 className="text-gray-700 font-semibold mb-3">Fotos Recentes</h2>
+          <div className="space-y-2">
+            {withPhoto.slice(0, 6).map((record: TimeLog) => (
+              <Card key={record.id}>
+                <CardContent className="p-3 flex items-center gap-3">
+                  <img
+                    src={record.photo_url!}
+                    alt="foto ponto"
+                    className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-800 text-sm truncate">
+                      {record.profile?.name ?? '—'}
+                    </p>
+                    <p className="text-gray-400 text-xs">
+                      {formatDistanceToNow(new Date(record.timestamp), { addSuffix: true, locale: ptBR })}
                     </p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    record.type === 'in' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium shrink-0 ${
+                      record.type === 'in' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}
+                  >
                     {record.type === 'in' ? 'Entrada' : 'Saída'}
                   </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
     </div>
-  );
+  )
 }

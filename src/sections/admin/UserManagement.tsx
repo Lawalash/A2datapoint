@@ -1,222 +1,218 @@
-import { useState } from 'react';
-import { useStore } from '@/hooks/useStore';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  User, 
-  CheckCircle2,
-  AlertCircle,
-  Search
-} from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+// src/sections/admin/UserManagement.tsx
+import { useState, useEffect } from 'react'
+import { useStore } from '@/hooks/useStore'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+  Plus, Trash2, User,
+  CheckCircle2, AlertCircle, Search, Loader2
+} from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Dialog, DialogContent, DialogDescription,
+  DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog'
+import type { Profile } from '@/types'
 
 export function UserManagement() {
-  const [newUserName, setNewUserName] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [feedback, setFeedback] = useState<{type: 'success' | 'error', message: string} | null>(null);
-  const [showDialog, setShowDialog] = useState(false);
-  
-  const navigateTo = useStore(state => state.navigateTo);
-  const users = useStore(state => state.users);
-  const createUser = useStore(state => state.createUser);
-  const deleteUser = useStore(state => state.deleteUser);
-  const getNextUserId = useStore(state => state.getNextUserId);
+  const [newUserName, setNewUserName] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [showDialog, setShowDialog] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const handleCreateUser = () => {
+  const profiles = useStore((state) => state.profiles)
+  const createUser = useStore((state) => state.createUser)
+  const deleteUser = useStore((state) => state.deleteUser)
+  const fetchProfiles = useStore((state) => state.fetchProfiles)
+
+  useEffect(() => {
+    fetchProfiles()
+  }, [fetchProfiles])
+
+  const showFeedback = (type: 'success' | 'error', message: string) => {
+    setFeedback({ type, message })
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  const handleCreateUser = async () => {
     if (!newUserName.trim()) {
-      setFeedback({ type: 'error', message: 'Digite um nome válido.' });
-      return;
+      showFeedback('error', 'Digite um nome válido.')
+      return
     }
+    setIsCreating(true)
+    const matricula = await createUser(newUserName.trim())
+    setIsCreating(false)
 
-    const newId = createUser(newUserName.trim());
-    setFeedback({ 
-      type: 'success', 
-      message: `Usuário criado! Matrícula: ${newId}` 
-    });
-    setNewUserName('');
-    setShowDialog(false);
-    
-    setTimeout(() => setFeedback(null), 3000);
-  };
-
-  const handleDeleteUser = (id: number, name: string) => {
-    if (confirm(`Tem certeza que deseja excluir ${name}?`)) {
-      deleteUser(id);
-      setFeedback({ type: 'success', message: 'Usuário excluído com sucesso.' });
-      setTimeout(() => setFeedback(null), 3000);
+    if (matricula) {
+      showFeedback('success', `Utilizador criado! Matrícula: ${matricula}`)
+      setNewUserName('')
+      setShowDialog(false)
+    } else {
+      showFeedback('error', 'Erro ao criar utilizador. Tente novamente.')
     }
-  };
+  }
 
-  const filteredUsers = users.filter(u => 
-    u.role === 'employee' && 
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleDeleteUser = async (profile: Profile) => {
+    if (!confirm(`Tem certeza que deseja excluir ${profile.name}?`)) return
+    setDeletingId(profile.id)
+    const ok = await deleteUser(profile.id)
+    setDeletingId(null)
+    if (ok) {
+      showFeedback('success', 'Utilizador excluído com sucesso.')
+    } else {
+      showFeedback('error', 'Erro ao excluir utilizador.')
+    }
+  }
 
-  const nextId = getNextUserId();
+  const employees = profiles.filter((p) => p.role === 'employee')
+  const filtered = employees.filter((p) =>
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(p.matricula).includes(searchTerm)
+  )
+
+  const nextMatricula = employees.length > 0
+    ? Math.max(...employees.map((p) => p.matricula)) + 1
+    : 1
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-700 to-blue-800 p-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigateTo('admin-dashboard')}
-            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center active:bg-white/30"
-          >
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-          <div>
-            <p className="text-blue-200 text-sm">Voltar ao Dashboard</p>
-            <h1 className="text-white font-bold text-xl">Gestão de Usuários</h1>
-          </div>
-        </div>
+    <div className="p-4 lg:p-8 max-w-3xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl lg:text-3xl font-bold text-[#0f2d5c]">Gestão de Utilizadores</h1>
+        <p className="text-sm text-gray-500 mt-1">Criar e gerir matrículas dos funcionários</p>
       </div>
 
-      {/* Feedback */}
       {feedback && (
-        <div className="px-4 pt-4">
-          <Alert className={feedback.type === 'success' ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}>
-            {feedback.type === 'success' ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-red-600" />
-            )}
-            <AlertDescription className={feedback.type === 'success' ? 'text-green-800' : 'text-red-800'}>
-              {feedback.message}
-            </AlertDescription>
-          </Alert>
-        </div>
+        <Alert className={`mb-4 ${feedback.type === 'success' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+          {feedback.type === 'success'
+            ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+            : <AlertCircle className="h-4 w-4 text-red-600" />}
+          <AlertDescription className={feedback.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+            {feedback.message}
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* Próxima matrícula */}
-      <div className="p-4">
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+      {/* Next matricula card */}
+      <Card className="bg-blue-50 border-blue-200 mb-6">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-blue-600 text-sm font-medium">Próxima Matrícula Disponível</p>
+            <p className="text-3xl font-bold text-blue-800">{nextMatricula}</p>
+          </div>
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+            <User className="w-6 h-6 text-blue-600" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Search + Add */}
+      <div className="flex gap-2 mb-6">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Input
+            placeholder="Buscar por nome ou matrícula..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-12"
+          />
+        </div>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild>
+            <Button className="h-12 w-12 bg-blue-600 hover:bg-blue-700 p-0">
+              <Plus className="w-5 h-5" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Novo Funcionário</DialogTitle>
+              <DialogDescription>Crie uma nova matrícula para o funcionário.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
               <div>
-                <p className="text-blue-600 text-sm font-medium">Próxima Matrícula Disponível</p>
-                <p className="text-3xl font-bold text-blue-800">{nextId}</p>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Nome Completo
+                </label>
+                <Input
+                  placeholder="Digite o nome completo"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateUser()}
+                  className="h-12"
+                  autoFocus
+                />
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-blue-600" />
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  Matrícula será: <strong>{nextMatricula}</strong>
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 h-12" onClick={() => setShowDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
+                  onClick={handleCreateUser}
+                  disabled={isCreating}
+                >
+                  {isCreating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {isCreating ? 'Criando...' : 'Criar'}
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Busca e botão adicionar */}
-      <div className="px-4 pb-4">
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Input
-              placeholder="Buscar funcionário..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-12"
-            />
-          </div>
-          <Dialog open={showDialog} onOpenChange={setShowDialog}>
-            <DialogTrigger asChild>
-              <Button className="h-12 w-12 bg-blue-600 hover:bg-blue-700 p-0">
-                <Plus className="w-5 h-5" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Novo Funcionário</DialogTitle>
-                <DialogDescription>
-                  Crie uma nova matrícula para o funcionário.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Nome Completo
-                  </label>
-                  <Input
-                    placeholder="Digite o nome completo"
-                    value={newUserName}
-                    onChange={(e) => setNewUserName(e.target.value)}
-                    className="h-12"
-                    autoFocus
-                  />
-                </div>
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    Matrícula será: <strong>{nextId}</strong>
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 h-12"
-                    onClick={() => setShowDialog(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
-                    onClick={handleCreateUser}
-                  >
-                    Criar
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      {/* Lista de usuários */}
-      <div className="px-4 pb-6">
-        <h2 className="text-gray-700 font-semibold mb-3">
-          Funcionários ({filteredUsers.length})
-        </h2>
-        <div className="space-y-2">
-          {filteredUsers.map((user) => (
-            <Card key={user.id} className="bg-white">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-gray-500" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{user.name}</p>
-                      <p className="text-gray-500 text-sm">Matrícula: {user.id}</p>
-                      {user.isFirstAccess && (
-                        <span className="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                          Primeiro Acesso
-                        </span>
-                      )}
-                    </div>
+      {/* Employee list */}
+      <h2 className="text-gray-700 font-semibold mb-3">
+        Funcionários ({filtered.length})
+      </h2>
+      <div className="space-y-2">
+        {filtered.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-gray-400">
+              <User className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Nenhum funcionário encontrado</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map((profile) => (
+            <Card key={profile.id}>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-gray-600">
+                      {profile.name.charAt(0).toUpperCase()}
+                    </span>
                   </div>
-                  <button
-                    onClick={() => handleDeleteUser(user.id, user.name)}
-                    className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center active:bg-red-200"
-                  >
-                    <Trash2 className="w-5 h-5 text-red-600" />
-                  </button>
+                  <div>
+                    <p className="font-semibold text-gray-800">{profile.name}</p>
+                    <p className="text-gray-500 text-sm">Mat. {profile.matricula}</p>
+                    {profile.is_first_access && (
+                      <span className="inline-block mt-0.5 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                        Primeiro Acesso
+                      </span>
+                    )}
+                  </div>
                 </div>
+                <button
+                  onClick={() => handleDeleteUser(profile)}
+                  disabled={deletingId === profile.id}
+                  className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors disabled:opacity-50"
+                >
+                  {deletingId === profile.id
+                    ? <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
+                    : <Trash2 className="w-5 h-5 text-red-600" />}
+                </button>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          ))
+        )}
       </div>
     </div>
-  );
+  )
 }

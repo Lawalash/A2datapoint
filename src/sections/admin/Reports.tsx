@@ -1,293 +1,250 @@
-import { useState, useRef } from 'react';
-import { useStore } from '@/hooks/useStore';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  ArrowLeft, 
-  FileText, 
-  Download, 
-  Share2,
-  User
-} from 'lucide-react';
-import { format, subDays } from 'date-fns';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import type { TimeRecord, OvertimeRequest, WorkSchedule } from '@/types';
+// src/sections/admin/Reports.tsx
+import { useState, useRef, useEffect } from 'react'
+import { useStore } from '@/hooks/useStore'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { FileText, Download, Share2, User, Loader2 } from 'lucide-react'
+import { format, subDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import type { TimeLog, OvertimeRequest } from '@/types'
 
 export function Reports() {
-  const navigateTo = useStore((state) => state.navigateTo);
-  const timeRecords = useStore((state) => state.timeRecords);
-  const users = useStore((state) => state.users);
-  const overtimeRequests = useStore((state) => state.overtimeRequests);
-  const workSchedules = useStore((state) => state.workSchedules);
+  const timeLogs = useStore((state) => state.timeLogs)
+  const profiles = useStore((state) => state.profiles)
+  const shifts = useStore((state) => state.shifts)
+  const overtimeRequests = useStore((state) => state.overtimeRequests)
+  const fetchTimeLogs = useStore((state) => state.fetchTimeLogs)
+  const fetchOvertimeRequests = useStore((state) => state.fetchOvertimeRequests)
 
-  const [generating, setGenerating] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const reportRef = useRef<HTMLDivElement>(null);
+  const [generating, setGenerating] = useState(false)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
 
-  // Gera dados do relatório dos últimos 7 dias
-  const generateReportData = () => {
-    const employees = users.filter((u) => u.role === 'employee');
-    const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
+  useEffect(() => {
+    const from = subDays(new Date(), 7)
+    fetchTimeLogs(from)
+    fetchOvertimeRequests()
+  }, [fetchTimeLogs, fetchOvertimeRequests])
 
-    return employees.map((employee) => {
-      const dailyData = last7Days.map((date) => {
-        const dayRecords = timeRecords.filter((r: TimeRecord) => {
-          const recordDate = new Date(r.timestamp);
-          return r.userId === employee.id && recordDate.toDateString() === date.toDateString();
-        }).sort((a: TimeRecord, b: TimeRecord) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const employees = profiles.filter((p) => p.role === 'employee')
+  const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i))
 
-        const firstIn = dayRecords.find((r: TimeRecord) => r.type === 'in');
-        const lastOut = [...dayRecords].reverse().find((r: TimeRecord) => r.type === 'out');
+  const reportData = employees.map((emp) => {
+    const daily = last7Days.map((date) => {
+      const dayLogs = timeLogs
+        .filter(
+          (r: TimeLog) =>
+            r.user_id === emp.id &&
+            new Date(r.timestamp).toDateString() === date.toDateString()
+        )
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-        const dayOvertime = overtimeRequests.filter((r: OvertimeRequest) => {
-          const requestDate = new Date(r.date);
-          return r.userId === employee.id && 
-                 requestDate.toDateString() === date.toDateString() &&
-                 r.status === 'approved';
-        });
+      const firstIn = dayLogs.find((r) => r.type === 'in')
+      const lastOut = [...dayLogs].reverse().find((r) => r.type === 'out')
 
-        const overtimeMinutes = dayOvertime.reduce((acc: number, r: OvertimeRequest) => acc + r.duration, 0);
+      const dow = date.getDay()
+      const shift = shifts.find((s) => s.user_id === emp.id && s.day_of_week === dow)
 
-        // Verifica escala
-        const dayOfWeek = date.getDay();
-        const schedule = workSchedules.find((s: WorkSchedule) => s.userId === employee.id && s.dayOfWeek === dayOfWeek);
+      const approvedOT = overtimeRequests
+        .filter(
+          (r: OvertimeRequest) =>
+            r.user_id === emp.id &&
+            new Date(r.date).toDateString() === date.toDateString() &&
+            r.status === 'approved'
+        )
+        .reduce((acc, r) => acc + r.duration_minutes, 0)
 
-        return {
-          date,
-          firstIn: firstIn ? new Date(firstIn.timestamp) : null,
-          lastOut: lastOut ? new Date(lastOut.timestamp) : null,
-          overtimeMinutes,
-          overtimePending: overtimeRequests.filter((r: OvertimeRequest) => {
-            const requestDate = new Date(r.date);
-            return r.userId === employee.id && 
-                   requestDate.toDateString() === date.toDateString() &&
-                   r.status === 'pending';
-          }).reduce((acc: number, r: OvertimeRequest) => acc + r.duration, 0),
-          scheduledStart: schedule?.startTime || '08:00',
-          scheduledEnd: schedule?.endTime || '17:00',
-          status: firstIn ? 'present' : 'absent'
-        };
-      });
+      const pendingOT = overtimeRequests
+        .filter(
+          (r: OvertimeRequest) =>
+            r.user_id === emp.id &&
+            new Date(r.date).toDateString() === date.toDateString() &&
+            r.status === 'pending'
+        )
+        .reduce((acc, r) => acc + r.duration_minutes, 0)
 
       return {
-        employee,
-        dailyData
-      };
-    });
-  };
+        date,
+        firstIn: firstIn ? new Date(firstIn.timestamp) : null,
+        lastOut: lastOut ? new Date(lastOut.timestamp) : null,
+        approvedOT,
+        pendingOT,
+        scheduledStart: shift?.start_time?.slice(0, 5) ?? '--:--',
+        scheduledEnd: shift?.end_time?.slice(0, 5) ?? '--:--',
+      }
+    })
 
-  const reportData = generateReportData();
+    return { employee: emp, daily }
+  })
 
   const generatePDF = async () => {
-    setGenerating(true);
-    
+    if (!reportRef.current) return
+    setGenerating(true)
     try {
-      if (reportRef.current) {
-        const canvas = await html2canvas(reportRef.current, {
-          scale: 2,
-          useCORS: true,
-          logging: false
-        });
-        
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgWidth = 210;
-        const pageHeight = 295;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 0;
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, logging: false })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgWidth = 210
+      const pageHeight = 295
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      let position = 0
 
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
 
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
-
-        const pdfBlob = pdf.output('blob');
-        const url = URL.createObjectURL(pdfBlob);
-        setPdfUrl(url);
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
       }
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
+
+      const url = URL.createObjectURL(pdf.output('blob'))
+      setPdfUrl(url)
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err)
     }
-    
-    setGenerating(false);
-  };
+    setGenerating(false)
+  }
 
   const sharePDF = async () => {
-    if (pdfUrl) {
-      try {
-        const response = await fetch(pdfUrl);
-        const blob = await response.blob();
-        const file = new File([blob], `relatorio-ponto-${format(new Date(), 'yyyy-MM-dd')}.pdf`, { type: 'application/pdf' });
-        
-        if (navigator.share) {
-          await navigator.share({
-            title: 'Relatório de Ponto',
-            text: 'Relatório de controle de ponto - Últimos 7 dias',
-            files: [file]
-          });
-        } else {
-          // Fallback: download direto
-          const link = document.createElement('a');
-          link.href = pdfUrl;
-          link.download = `relatorio-ponto-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-          link.click();
-        }
-      } catch (error) {
-        console.error('Erro ao compartilhar:', error);
-      }
+    if (!pdfUrl) return
+    const blob = await (await fetch(pdfUrl)).blob()
+    const file = new File([blob], `relatorio-ponto-${format(new Date(), 'yyyy-MM-dd')}.pdf`, {
+      type: 'application/pdf',
+    })
+    if (navigator.share) {
+      await navigator.share({ title: 'Relatório de Ponto', files: [file] }).catch(() => {})
+    } else {
+      const a = document.createElement('a')
+      a.href = pdfUrl
+      a.download = file.name
+      a.click()
     }
-  };
+  }
 
-  const formatTime = (date: Date | null) => {
-    if (!date) return '--:--';
-    return format(date, 'HH:mm');
-  };
+  const fmt = (d: Date | null) => (d ? format(d, 'HH:mm') : '--:--')
+  const fmtOT = (min: number) =>
+    min > 0 ? `${Math.floor(min / 60)}h ${min % 60 > 0 ? min % 60 + 'm' : ''}`.trim() : '—'
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-700 to-purple-800 p-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigateTo('admin-dashboard')}
-            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center active:bg-white/30"
-          >
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </button>
-          <div>
-            <p className="text-purple-200 text-sm">Voltar ao Dashboard</p>
-            <h1 className="text-white font-bold text-xl">Relatórios</h1>
-          </div>
-        </div>
+    <div className="p-4 lg:p-8 max-w-5xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl lg:text-3xl font-bold text-[#0f2d5c]">Relatórios</h1>
+        <p className="text-sm text-gray-500 mt-1">Escala vs. registros reais — últimos 7 dias</p>
       </div>
 
-      {/* Ações */}
-      <div className="p-4">
-        <Card className="bg-white">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-800">Relatório de 7 Dias</h3>
-                <p className="text-gray-500 text-sm">Escala vs. Registros Reais</p>
-              </div>
+      {/* Actions */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <FileText className="w-6 h-6 text-purple-600" />
             </div>
-            
-            <div className="flex gap-2">
-              <Button
-                className="flex-1 h-12 bg-purple-600 hover:bg-purple-700"
-                onClick={generatePDF}
-                disabled={generating}
-              >
-                <Download className="w-5 h-5 mr-2" />
-                {generating ? 'Gerando...' : 'Gerar PDF'}
-              </Button>
-              {pdfUrl && (
-                <Button
-                  variant="outline"
-                  className="h-12 px-4"
-                  onClick={sharePDF}
-                >
-                  <Share2 className="w-5 h-5" />
-                </Button>
+            <div>
+              <h3 className="font-semibold text-gray-800">Relatório de 7 Dias</h3>
+              <p className="text-gray-500 text-sm">
+                {format(subDays(new Date(), 6), 'dd/MM')} – {format(new Date(), 'dd/MM/yyyy')}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 h-11 bg-purple-600 hover:bg-purple-700"
+              onClick={generatePDF}
+              disabled={generating}
+            >
+              {generating ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
+              ) : (
+                <><Download className="w-4 h-4 mr-2" />Gerar PDF</>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Preview do relatório (hidden para PDF) */}
-      <div className="px-4 pb-6">
-        <h2 className="text-gray-700 font-semibold mb-3">Pré-visualização</h2>
-        
-        <div ref={reportRef} className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {/* Cabeçalho do relatório */}
-          <div className="bg-purple-700 p-4 text-white">
-            <h3 className="text-lg font-bold">Relatório de Controle de Ponto</h3>
-            <p className="text-purple-200 text-sm">
-              Período: {format(subDays(new Date(), 6), 'dd/MM/yyyy')} a {format(new Date(), 'dd/MM/yyyy')}
-            </p>
+            </Button>
+            {pdfUrl && (
+              <Button variant="outline" className="h-11 px-4" onClick={sharePDF}>
+                <Share2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Tabela de dados */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+      {/* Preview */}
+      <h2 className="text-gray-700 font-semibold mb-3">Pré-visualização</h2>
+      <div ref={reportRef} className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-purple-700 p-4 text-white">
+          <h3 className="text-lg font-bold">Relatório de Controle de Ponto</h3>
+          <p className="text-purple-200 text-sm">
+            {format(subDays(new Date(), 6), 'dd/MM/yyyy')} – {format(new Date(), 'dd/MM/yyyy')}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium text-gray-700">Funcionário</th>
+                <th className="px-3 py-2 text-center font-medium text-gray-700">Data</th>
+                <th className="px-3 py-2 text-center font-medium text-gray-700">Entrada</th>
+                <th className="px-3 py-2 text-center font-medium text-gray-700">Saída</th>
+                <th className="px-3 py-2 text-center font-medium text-gray-700">HE Aprov.</th>
+                <th className="px-3 py-2 text-center font-medium text-gray-700">HE Pend.</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {reportData.map(({ employee, daily }) =>
+                daily.map((day, idx) => (
+                  <tr key={`${employee.id}-${idx}`} className="hover:bg-gray-50">
+                    {idx === 0 && (
+                      <td rowSpan={daily.length} className="px-3 py-2 font-medium text-gray-800 align-top">
+                        <div className="flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          {employee.name}
+                        </div>
+                        <div className="text-gray-400 text-xs mt-0.5">Mat. {employee.matricula}</div>
+                      </td>
+                    )}
+                    <td className="px-3 py-2 text-center text-gray-500">
+                      {format(day.date, 'dd/MM', { locale: ptBR })}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={day.firstIn ? 'text-green-600' : 'text-gray-400'}>
+                        {fmt(day.firstIn)}
+                      </span>
+                      <span className="text-gray-300 text-xs block">({day.scheduledStart})</span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={day.lastOut ? 'text-green-600' : 'text-gray-400'}>
+                        {fmt(day.lastOut)}
+                      </span>
+                      <span className="text-gray-300 text-xs block">({day.scheduledEnd})</span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={day.approvedOT > 0 ? 'text-green-600 font-medium' : 'text-gray-400'}>
+                        {fmtOT(day.approvedOT)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={day.pendingOT > 0 ? 'text-orange-500 font-medium' : 'text-gray-400'}>
+                        {fmtOT(day.pendingOT)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+              {reportData.length === 0 && (
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">Funcionário</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">Data</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">Entrada</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">Saída</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">HE Aprovada</th>
-                  <th className="px-3 py-2 text-center font-medium text-gray-700">HE Pendente</th>
+                  <td colSpan={6} className="py-10 text-center text-gray-400 text-sm">
+                    Nenhum dado disponível
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {reportData.map(({ employee, dailyData }) => 
-                  dailyData.map((day, idx) => (
-                    <tr key={`${employee.id}-${idx}`} className="hover:bg-gray-50">
-                      {idx === 0 && (
-                        <td rowSpan={dailyData.length} className="px-3 py-2 font-medium text-gray-800 align-top">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-400" />
-                            {employee.name}
-                          </div>
-                        </td>
-                      )}
-                      <td className="px-3 py-2 text-center text-gray-600">
-                        {format(day.date, 'dd/MM')}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={day.firstIn ? 'text-green-600' : 'text-red-500'}>
-                          {formatTime(day.firstIn)}
-                        </span>
-                        <span className="text-gray-400 text-xs block">
-                          ({day.scheduledStart})
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={day.lastOut ? 'text-green-600' : 'text-red-500'}>
-                          {formatTime(day.lastOut)}
-                        </span>
-                        <span className="text-gray-400 text-xs block">
-                          ({day.scheduledEnd})
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {day.overtimeMinutes > 0 ? (
-                          <span className="text-green-600 font-medium">
-                            {Math.floor(day.overtimeMinutes / 60)}h {day.overtimeMinutes % 60}m
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        {day.overtimePending > 0 ? (
-                          <span className="text-orange-600 font-medium">
-                            {Math.floor(day.overtimePending / 60)}h {day.overtimePending % 60}m
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
-  );
+  )
 }
