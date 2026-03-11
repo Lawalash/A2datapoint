@@ -7,6 +7,7 @@ export interface Profile {
   id: string
   matricula: number
   name: string
+  cpf: string | null
   role: 'admin' | 'employee'
   is_first_access: boolean
   created_at: string
@@ -91,7 +92,7 @@ export interface AppState {
   // Admin Actions
   approveOvertime: (requestId: string) => Promise<boolean>
   rejectOvertime: (requestId: string) => Promise<boolean>
-  createUser: (name: string) => Promise<number | null>
+  createUser: (name: string, cpf?: string) => Promise<number | null>
   deleteUser: (userId: string) => Promise<boolean>
   resetUserPassword: (userId: string) => Promise<boolean>
   bulkAssignShifts: (

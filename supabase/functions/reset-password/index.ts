@@ -1,116 +1,112 @@
-// src/types/index.ts
+// supabase/functions/reset-password/index.ts
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-export type AppView = 'login' | 'first-access' | 'employee-dashboard' | 'admin'
-export type AdminView = 'dashboard' | 'users' | 'shifts' | 'monitoring' | 'overtime' | 'reports' | 'storage'
-
-export interface Profile {
-  id: string
-  matricula: number
-  name: string
-  cpf: string | null
-  role: 'admin' | 'employee'
-  is_first_access: boolean
-  created_at: string
-  updated_at: string
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-export interface Shift {
-  id: number
-  user_id: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-  created_at: string
-  updated_at: string
-}
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
-export interface TimeLog {
-  id: string
-  user_id: string
-  timestamp: string
-  type: 'in' | 'out'
-  photo_url: string | null
-  flag: 'he_not_registered' | 'late' | 'early_exit' | null
-  note: string | null
-  log_date: string
-  created_at: string
-  profile?: { name: string; matricula: number }
-}
+  try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-export interface OvertimeRequest {
-  id: string
-  user_id: string
-  date: string
-  duration_minutes: number
-  status: 'pending' | 'approved' | 'rejected'
-  note: string | null
-  requested_at: string
-  reviewed_at: string | null
-  reviewed_by: string | null
-  created_at: string
-  profile?: { name: string; matricula: number }
-}
+    // Verificar admin
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    )
 
-export interface AuthResult {
-  success: boolean
-  error?: string
-  user?: Profile
-  isFirstAccess?: boolean
-}
+    const { data: { user } } = await supabaseUser.auth.getUser()
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Sessão inválida' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-export interface PunchResult {
-  success: boolean
-  message: string
-  flag?: TimeLog['flag']
-  log?: TimeLog
-}
+    const { data: callerProfile } = await supabaseUser
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
 
-export interface AppState {
-  currentUser: Profile | null
-  currentView: AppView
-  adminView: AdminView
-  profiles: Profile[]
-  shifts: Shift[]
-  timeLogs: TimeLog[]
-  overtimeRequests: OvertimeRequest[]
-  isLoading: boolean
-  isAuthLoading: boolean
+    if (callerProfile?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Apenas administradores podem resetar senhas' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-  // Auth
-  login: (matricula: number, password: string, forceEmployeeView?: boolean) => Promise<AuthResult>
-  logout: () => Promise<void>
-  setFirstAccessComplete: (password: string) => Promise<boolean>
+    const { userId } = await req.json() as { userId: string }
 
-  // Navigation
-  navigateTo: (view: AppView) => void
-  navigateAdmin: (view: AdminView) => void
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'userId é obrigatório' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-  // Time Registration
-  registerTime: (type: 'in' | 'out', photoDataUrl?: string) => Promise<PunchResult>
-  requestOvertime: (durationMinutes: number) => Promise<boolean>
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
 
-  // Admin Actions
-  approveOvertime: (requestId: string) => Promise<boolean>
-  rejectOvertime: (requestId: string) => Promise<boolean>
-  createUser: (name: string, cpf?: string) => Promise<number | null>
-  deleteUser: (userId: string) => Promise<boolean>
-  resetUserPassword: (userId: string) => Promise<boolean>
-  bulkAssignShifts: (
-    userIds: string[],
-    days: number[],
-    startTime: string,
-    endTime: string
-  ) => Promise<boolean>
+    // Buscar matrícula do utilizador para usar como nova senha temporária
+    const { data: targetProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('matricula')
+      .eq('id', userId)
+      .single()
 
-  // Data Fetching
-  fetchProfiles: () => Promise<void>
-  fetchShifts: () => Promise<void>
-  fetchTimeLogs: (fromDate?: Date) => Promise<void>
-  fetchOvertimeRequests: () => Promise<void>
+    if (!targetProfile) {
+      return new Response(JSON.stringify({ error: 'Utilizador não encontrado' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-  // Selectors
-  getTodayLogs: () => TimeLog[]
-  getUserTodayLastLog: () => TimeLog | null
-  getUserShiftToday: () => Shift | null
-  getPendingOvertimeCount: () => number
-}
+    const newPassword = String(targetProfile.matricula)
+
+    // Resetar senha via Admin API
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: newPassword,
+    })
+
+    if (updateError) {
+      console.error('Erro ao resetar senha:', updateError)
+      return new Response(JSON.stringify({ error: updateError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Marcar is_first_access = true para forçar troca de senha
+    await supabaseAdmin
+      .from('profiles')
+      .update({ is_first_access: true })
+      .eq('id', userId)
+
+    return new Response(
+      JSON.stringify({ success: true, newPassword }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (err) {
+    console.error('Erro inesperado:', err)
+    return new Response(JSON.stringify({ error: 'Erro interno do servidor' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})
