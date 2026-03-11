@@ -79,7 +79,9 @@ export function UserManagement() {
     if (ok) {
       showFeedback('success', `Senha de ${profile.name} resetada. Nova senha temp.: ${profile.matricula}`)
     } else {
-      showFeedback('error', 'Erro ao resetar. Verifique a Edge Function "reset-password".')
+      showFeedback('error',
+        'Falha ao resetar a senha. Para corrigir: adicione VITE_SUPABASE_SERVICE_ROLE_KEY nas variáveis de ambiente da Vercel, ou implante a Edge Function "reset-password" no Supabase.'
+      )
     }
   }
 

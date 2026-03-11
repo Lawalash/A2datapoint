@@ -98,6 +98,7 @@ export const useStore = create<AppState>((set, get) => ({
       } else {
         void get().fetchShifts()
         void get().fetchTimeLogs()
+        void get().fetchOvertimeRequests()
       }
 
       return { success: true, user: profile, isFirstAccess: profile.is_first_access }
@@ -252,7 +253,7 @@ export const useStore = create<AppState>((set, get) => ({
   requestOvertime: async (durationMinutes: number): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser) return false
-    if (durationMinutes > 105) return false
+    if (durationMinutes > 360) return false // máximo 6h de HE/compensação
 
     try {
       const today = new Date().toISOString().split('T')[0]
@@ -544,6 +545,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
+      // 1. Tentar Edge Function primeiro
       const result = await callEdgeFunction('reset-password', { userId })
       if (result.ok) {
         set((state) => ({
@@ -553,11 +555,16 @@ export const useStore = create<AppState>((set, get) => ({
         }))
         return true
       }
-      console.warn('Edge Function "reset-password" falhou, tentando fallback:', result.error)
+      console.warn('Edge Function "reset-password" falhou, tentando fallback directo:', result.error)
 
+      // 2. Fallback via service role key
       const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
       if (!serviceKey) {
-        console.error('Adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local')
+        console.error(
+          '[reset-password] VITE_SUPABASE_SERVICE_ROLE_KEY não configurado.\n' +
+          'Solução: Adicione esta variável no painel da Vercel → Settings → Environment Variables\n' +
+          'OU implante a Edge Function "reset-password" no Supabase Dashboard.'
+        )
         return false
       }
 
@@ -573,9 +580,12 @@ export const useStore = create<AppState>((set, get) => ({
             Authorization: `Bearer ${serviceKey}`,
             apikey: serviceKey,
           },
-          body: JSON.stringify({ password: String(profile.matricula) }),
+          body: JSON.stringify({
+            password: String(profile.matricula),
+          }),
         }
       )
+
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}))
         console.error('Admin REST API falhou ao resetar senha:', errBody)
@@ -678,11 +688,20 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchOvertimeRequests: async () => {
-    const { data, error } = await supabase
+    const { currentUser } = get()
+
+    let query = supabase
       .from('overtime_requests')
       .select('*, profile:profiles(name, matricula)')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(500)
+
+    // Funcionários só veem as próprias HE
+    if (currentUser && currentUser.role !== 'admin') {
+      query = query.eq('user_id', currentUser.id)
+    }
+
+    const { data, error } = await query
 
     if (!error && data) set({ overtimeRequests: data as OvertimeRequest[] })
     else if (error) console.error('fetchOvertimeRequests:', error.message)
@@ -756,6 +775,7 @@ supabase.auth.getSession().then(async ({ data: { session } }) => {
       } else {
         void store.fetchShifts()
         void store.fetchTimeLogs()
+        void store.fetchOvertimeRequests()
       }
     } else {
       await supabase.auth.signOut()
