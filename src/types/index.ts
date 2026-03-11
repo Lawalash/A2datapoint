@@ -31,7 +31,7 @@ export interface TimeLog {
   timestamp: string
   type: 'in' | 'out' | 'lunch_start' | 'lunch_end'
   photo_url: string | null
-  flag: 'he_not_registered' | 'late' | 'early_exit' | null
+  flag: 'he_not_registered' | 'late' | 'early_exit' | 'logout_by_agent' | null
   note: string | null
   log_date: string
   created_at: string
@@ -76,6 +76,7 @@ export interface AppState {
   overtimeRequests: OvertimeRequest[]
   isLoading: boolean
   isAuthLoading: boolean
+  isLogsLoading: boolean // NEW: prevents race condition on page load
 
   // Auth
   login: (matricula: number, password: string, forceEmployeeView?: boolean) => Promise<AuthResult>
@@ -90,6 +91,7 @@ export interface AppState {
   registerTime: (type: 'in' | 'out', photoDataUrl?: string) => Promise<PunchResult>
   registerLunch: (type: 'lunch_start' | 'lunch_end') => Promise<PunchResult>
   requestOvertime: (durationMinutes: number) => Promise<boolean>
+  registerLogoutByAgent: (userId: string) => Promise<boolean>
 
   // Admin Actions
   approveOvertime: (requestId: string) => Promise<boolean>
@@ -101,7 +103,8 @@ export interface AppState {
     userIds: string[],
     days: number[],
     startTime: string,
-    endTime: string
+    endTime: string,
+    lunchDurationMinutes?: number
   ) => Promise<boolean>
 
   // Data Fetching

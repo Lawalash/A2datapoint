@@ -16,65 +16,91 @@ import type { TimeLog } from '@/types'
 
 const STORAGE_LIMIT_MB = 500
 
-// Direct SDK cleanup — removes Edge Function dependency
-async function cleanupOldPhotos(): Promise<{ deleted: number; message: string }> {
+// Cleanup via direct SDK — avoids Edge Function dependency
+async function cleanupOldPhotos(): Promise<{ deleted: number; errors: number; message: string }> {
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-  // Find old time_logs with photos
+  // 1. Find old logs with photos
   const { data: oldLogs, error: logsError } = await supabase
     .from('time_logs')
     .select('id, photo_url')
     .lt('timestamp', sevenDaysAgo.toISOString())
     .not('photo_url', 'is', null)
 
-  if (logsError) throw new Error(`Erro ao buscar registros: ${logsError.message}`)
-  if (!oldLogs || oldLogs.length === 0) return { deleted: 0, message: 'Nenhuma foto antiga encontrada.' }
+  if (logsError) {
+    throw new Error(`Erro ao buscar registros: ${logsError.message}`)
+  }
 
-  // Extract storage paths from URLs
+  if (!oldLogs || oldLogs.length === 0) {
+    return { deleted: 0, errors: 0, message: 'Nenhuma foto antiga encontrada.' }
+  }
+
+  // 2. Extract storage paths from URLs
   const paths: string[] = []
   for (const log of oldLogs) {
     if (!log.photo_url) continue
     try {
       const url = new URL(log.photo_url)
-      // Path format: /storage/v1/object/public/punch_photos/USER_ID/FILE.jpg
+      // Path: /storage/v1/object/public/punch_photos/USER_ID/FILE.jpg
       const match = url.pathname.match(/punch_photos\/(.+)$/)
       if (match) paths.push(match[1])
-    } catch { /* skip invalid URLs */ }
+    } catch {
+      // Skip invalid URLs silently
+    }
   }
 
-  if (paths.length === 0) return { deleted: 0, message: 'Nenhum arquivo para remover.' }
+  if (paths.length === 0) {
+    return { deleted: 0, errors: 0, message: 'Nenhum arquivo para remover.' }
+  }
 
-  // Delete from storage in batches of 100
+  // 3. Delete from storage in batches of 50 (smaller batches = more reliable)
   let deleted = 0
-  const batchSize = 100
+  let errors  = 0
+  const batchSize = 50
+
   for (let i = 0; i < paths.length; i += batchSize) {
     const batch = paths.slice(i, i + batchSize)
-    const { error: deleteError } = await supabase.storage.from('punch_photos').remove(batch)
-    if (!deleteError) deleted += batch.length
-    else console.warn('Batch delete error:', deleteError.message)
+    try {
+      const { error: deleteError } = await supabase.storage.from('punch_photos').remove(batch)
+      if (deleteError) {
+        console.warn('Batch delete error:', deleteError.message)
+        errors += batch.length
+      } else {
+        deleted += batch.length
+      }
+    } catch (err) {
+      console.warn('Storage batch error:', err)
+      errors += batch.length
+    }
   }
 
-  // Clear photo_url references in time_logs
-  await supabase
+  // 4. Clear photo_url references regardless (even if storage delete partially failed)
+  const { error: clearError } = await supabase
     .from('time_logs')
     .update({ photo_url: null })
     .lt('timestamp', sevenDaysAgo.toISOString())
     .not('photo_url', 'is', null)
 
-  return {
-    deleted,
-    message: `${deleted} foto(s) removidas com sucesso (~${deleted * 2}MB liberados).`,
+  if (clearError) {
+    console.warn('Error clearing photo_url refs:', clearError.message)
   }
+
+  const estimatedMB = deleted * 2
+  const msg = errors > 0
+    ? `${deleted} foto(s) removidas (~${estimatedMB}MB). ${errors} falharam (referências limpas).`
+    : `${deleted} foto(s) removidas com sucesso (~${estimatedMB}MB liberados).`
+
+  return { deleted, errors, message: msg }
 }
 
 export function Storage() {
   const [photoModal, setPhotoModal] = useState<{ url: string; name: string; time: string } | null>(null)
-  const timeLogs = useStore((state) => state.timeLogs)
+  const timeLogs    = useStore((state) => state.timeLogs)
   const fetchTimeLogs = useStore((state) => state.fetchTimeLogs)
 
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const [clearing, setClearing] = useState(false)
+  const [feedback,     setFeedback]     = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null)
+  const [clearing,     setClearing]     = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
@@ -91,7 +117,7 @@ export function Storage() {
     setIsRefreshing(false)
   }, [fetchTimeLogs])
 
-  const now = new Date()
+  const now         = new Date()
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
   const withPhoto    = timeLogs.filter((r: TimeLog) => r.photo_url)
@@ -114,16 +140,15 @@ export function Storage() {
     setFeedback(null)
     try {
       const result = await cleanupOldPhotos()
-      setFeedback({ type: 'success', message: result.message })
+      const type = result.errors > 0 ? 'warning' : 'success'
+      setFeedback({ type, message: result.message })
       await refresh()
     } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Erro ao limpar fotos.',
-      })
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido ao limpar fotos.'
+      setFeedback({ type: 'error', message: msg })
     }
     setClearing(false)
-    setTimeout(() => setFeedback(null), 6000)
+    setTimeout(() => setFeedback(null), 8000)
   }
 
   return (
@@ -143,9 +168,20 @@ export function Storage() {
       </div>
 
       {feedback && (
-        <Alert className={`mb-4 ${feedback.type === 'success' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
-          <CheckCircle2 className={`h-4 w-4 ${feedback.type === 'success' ? 'text-green-600' : 'text-red-600'}`} />
-          <AlertDescription className={feedback.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+        <Alert className={`mb-4 ${
+          feedback.type === 'success' ? 'bg-green-50 border-green-300' :
+          feedback.type === 'warning' ? 'bg-yellow-50 border-yellow-300' :
+          'bg-red-50 border-red-300'
+        }`}>
+          {feedback.type === 'success'
+            ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+            : <AlertTriangle className={`h-4 w-4 ${feedback.type === 'warning' ? 'text-yellow-600' : 'text-red-600'}`} />
+          }
+          <AlertDescription className={
+            feedback.type === 'success' ? 'text-green-800' :
+            feedback.type === 'warning' ? 'text-yellow-800' :
+            'text-red-800'
+          }>
             {feedback.message}
           </AlertDescription>
         </Alert>
@@ -205,11 +241,25 @@ export function Storage() {
             <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
             <div>
               <p className="font-medium text-red-800">Armazenamento Quase Cheio</p>
-              <p className="text-sm text-red-700">Recomendamos limpar fotos antigas.</p>
+              <p className="text-sm text-red-700">Recomendamos limpar fotos antigas imediatamente.</p>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Note about storage permissions */}
+      <Card className="bg-blue-50 border-blue-200 mb-6">
+        <CardContent className="p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium text-blue-800 text-sm">Sobre a limpeza de fotos</p>
+            <p className="text-xs text-blue-700 mt-1">
+              Certifique-se que a política de Storage no Supabase permite DELETE para usuários autenticados no bucket <code>punch_photos</code>.
+              As referências nos registros são sempre limpas, mesmo que a deleção do arquivo falhe.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Clear action */}
       <Card className="mb-6">
@@ -257,7 +307,12 @@ export function Storage() {
                     })}
                     className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-colors shrink-0 relative group"
                   >
-                    <img src={record.photo_url!} alt="foto ponto" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    <img
+                      src={record.photo_url!}
+                      alt="foto ponto"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
                       <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>

@@ -6,7 +6,7 @@ import {
   Users, BarChart3, Clock, FileText,
   HardDrive, UserCheck, TrendingUp, X, UtensilsCrossed,
   AlertTriangle, RefreshCw, LogOut, ShieldAlert, Coffee,
-  ArrowRightCircle, Bell
+  ArrowRightCircle, Bell, Timer, Activity, UserX, CheckCircle2
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -23,17 +23,26 @@ function formatElapsed(startTs: string): string {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
 }
 
+function formatWorkedTime(inLog: TimeLog | undefined): string {
+  if (!inLog) return '--'
+  const elapsed = Math.floor((Date.now() - new Date(inLog.timestamp).getTime()) / 1000)
+  const h = Math.floor(elapsed / 3600)
+  const m = Math.floor((elapsed % 3600) / 60)
+  return `${h}h${String(m).padStart(2,'0')}`
+}
+
 export function AdminDashboard() {
   const [photoModal, setPhotoModal] = useState<{ url: string; name: string; time: string } | null>(null)
-  const [tick, setTick] = useState(0) // force re-render every second for timers
+  const [tick, setTick] = useState(0)
   const [agentLogoutIds, setAgentLogoutIds] = useState<Set<string>>(new Set())
+  const [newHEAlert, setNewHEAlert] = useState<string | null>(null)
 
-  const navigateAdmin   = useStore((s) => s.navigateAdmin)
-  const getTodayLogs    = useStore((s) => s.getTodayLogs)
-  const profiles        = useStore((s) => s.profiles)
-  const shifts          = useStore((s) => s.shifts)
-  const overtimeRequests = useStore((s) => s.overtimeRequests)
-  const fetchTimeLogs   = useStore((s) => s.fetchTimeLogs)
+  const navigateAdmin         = useStore((s) => s.navigateAdmin)
+  const getTodayLogs          = useStore((s) => s.getTodayLogs)
+  const profiles              = useStore((s) => s.profiles)
+  const shifts                = useStore((s) => s.shifts)
+  const overtimeRequests      = useStore((s) => s.overtimeRequests)
+  const fetchTimeLogs         = useStore((s) => s.fetchTimeLogs)
   const fetchOvertimeRequests = useStore((s) => s.fetchOvertimeRequests)
   const registerLogoutByAgent = useStore((s) => s.registerLogoutByAgent)
 
@@ -48,8 +57,20 @@ export function AdminDashboard() {
     fetchOvertimeRequests()
   }, [fetchTimeLogs, fetchOvertimeRequests])
 
+  // Alert when new pending HE requests arrive (real-time via store)
+  const pendingCount = overtimeRequests.filter(r => r.status === 'pending').length
+  useEffect(() => {
+    if (pendingCount > 0) {
+      const latest = overtimeRequests.find(r => r.status === 'pending')
+      if (latest?.profile?.name) {
+        setNewHEAlert(`Nova HE: ${latest.profile.name}`)
+        const t = setTimeout(() => setNewHEAlert(null), 5000)
+        return () => clearTimeout(t)
+      }
+    }
+  }, [pendingCount]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const todayLogs      = getTodayLogs()
-  const todayStr       = new Date().toDateString()
   const employees      = profiles.filter((p) => p.role === 'employee')
   const totalEmployees = employees.length
   const pendingOvertime = overtimeRequests.filter((r) => r.status === 'pending').length
@@ -63,6 +84,15 @@ export function AdminDashboard() {
   })
   const presentCount = checkedInUsers.length
 
+  // ── Who hasn't clocked in today (has a shift today but no in log) ──
+  const todayDow = new Date().getDay()
+  const absentUsers = employees.filter((emp) => {
+    const hasShift = shifts.some(s => s.user_id === emp.id && s.day_of_week === todayDow)
+    if (!hasShift) return false
+    const hasIn = todayLogs.some(l => l.user_id === emp.id && l.type === 'in')
+    return !hasIn
+  })
+
   // ── Who is currently on lunch ──
   const onLunchUsers = employees.filter((emp) => {
     const lunchLogs = todayLogs
@@ -73,13 +103,11 @@ export function AdminDashboard() {
 
   // ── Lunch overtime alerts ──
   const lunchOvertimeUsers = onLunchUsers.filter((emp) => {
-    const todayDow = new Date().getDay()
-    const shift    = shifts.find(s => s.user_id === emp.id && s.day_of_week === todayDow)
-    const allowed  = (shift?.lunch_duration_minutes ?? 60) * 60 * 1000
+    const shift   = shifts.find(s => s.user_id === emp.id && s.day_of_week === todayDow)
+    const allowed = (shift?.lunch_duration_minutes ?? 60) * 60 * 1000
     const lunchStart = todayLogs
       .filter(l => l.user_id === emp.id && l.type === 'lunch_start')
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
-
     if (!lunchStart) return false
     return (Date.now() - new Date(lunchStart.timestamp).getTime()) > allowed
   })
@@ -87,55 +115,53 @@ export function AdminDashboard() {
   // ── Early arrival alerts (punched more than 15min early) ──
   const earlyArrivals = todayLogs.filter(l => {
     if (l.type !== 'in' || l.flag === 'logout_by_agent') return false
-    const todayDow = new Date().getDay()
     const shift = shifts.find(s => s.user_id === l.user_id && s.day_of_week === todayDow)
     if (!shift) return false
     const [h, m] = shift.start_time.split(':').map(Number)
     const scheduled = new Date(l.timestamp)
     scheduled.setHours(h, m, 0, 0)
-    const punchTime = new Date(l.timestamp)
-    // Punched more than 15min before schedule
-    return (scheduled.getTime() - punchTime.getTime()) > 15 * 60 * 1000
+    return (scheduled.getTime() - new Date(l.timestamp).getTime()) > 15 * 60 * 1000
   })
 
-  // ── Auto-logout check — runs every 5 minutes ──
+  // ── HE requests from today ──
+  const todayStr = new Date().toISOString().split('T')[0]
+  const todayHERequests = overtimeRequests.filter(r => r.date === todayStr)
+  const _ = tick // force re-render for timers
+
+  // ── Auto-logout check ──
   const checkAutoLogout = useCallback(async () => {
     const now = Date.now()
     for (const emp of checkedInUsers) {
       if (agentLogoutIds.has(emp.id)) continue
-
-      const todayDow = new Date().getDay()
-      const shift    = shifts.find(s => s.user_id === emp.id && s.day_of_week === todayDow)
+      const shift = shifts.find(s => s.user_id === emp.id && s.day_of_week === todayDow)
       if (!shift) continue
 
       const [h, m] = shift.end_time.split(':').map(Number)
       const scheduled = new Date()
       scheduled.setHours(h, m, 0, 0)
 
-      // Find approved overtime for today
-      const todayStr = new Date().toISOString().split('T')[0]
       const approvedOT = overtimeRequests
         .filter(r => r.user_id === emp.id && r.date === todayStr && r.status === 'approved')
         .reduce((sum, r) => sum + r.duration_minutes, 0)
 
-      const deadline = scheduled.getTime() + approvedOT * 60 * 1000 + 30 * 60 * 1000 // +30min tolerance
+      const deadline = scheduled.getTime() + approvedOT * 60 * 1000 + 30 * 60 * 1000
 
       if (now > deadline) {
         setAgentLogoutIds(prev => new Set([...prev, emp.id]))
         const ok = await registerLogoutByAgent(emp.id)
         if (ok) {
           toast.warning(
-            `⚠ Saída automática registrada para ${emp.name} — não realizou saída manual no horário previsto.`,
+            `⚠ Saída automática: ${emp.name} — não registrou saída no horário previsto.`,
             { duration: 10000 }
           )
         }
       }
     }
-  }, [checkedInUsers, shifts, overtimeRequests, agentLogoutIds, registerLogoutByAgent])
+  }, [checkedInUsers, shifts, overtimeRequests, agentLogoutIds, registerLogoutByAgent, todayDow, todayStr])
 
   useEffect(() => {
     checkAutoLogout()
-    const iv = setInterval(checkAutoLogout, 5 * 60 * 1000) // every 5 min
+    const iv = setInterval(checkAutoLogout, 5 * 60 * 1000)
     return () => clearInterval(iv)
   }, [checkAutoLogout])
 
@@ -148,7 +174,6 @@ export function AdminDashboard() {
     { id: 'storage'    as const, label: 'Armazenamento',   icon: HardDrive,   color: 'bg-red-500',    desc: 'Gerir fotos' },
   ]
 
-  // ── Render ──────────────────────────────────────────────────────
   return (
     <div className="p-4 lg:p-8 max-w-5xl mx-auto">
 
@@ -161,13 +186,22 @@ export function AdminDashboard() {
           </p>
         </div>
         <button
-          onClick={() => { fetchTimeLogs(); fetchOvertimeRequests() }}
+          onClick={() => { void fetchTimeLogs(); void fetchOvertimeRequests() }}
           className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
           title="Atualizar dados"
         >
           <RefreshCw className="w-4 h-4 text-gray-600" />
         </button>
       </div>
+
+      {/* ── New HE toast banner ─────────────────────────────────── */}
+      {newHEAlert && (
+        <div className="mb-4 bg-orange-500 text-white rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg animate-pulse">
+          <Bell className="w-4 h-4 shrink-0" />
+          <p className="text-sm font-semibold flex-1">{newHEAlert} · clique em Aprovação de HE</p>
+          <button onClick={() => setNewHEAlert(null)}><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {/* ── Alertas ativos ─────────────────────────────────────── */}
       {(lunchOvertimeUsers.length > 0 || earlyArrivals.length > 0 || pendingOvertime > 0) && (
@@ -186,7 +220,7 @@ export function AdminDashboard() {
               <div key={log.id} className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
                 <Bell className="w-4 h-4 text-amber-500 shrink-0" />
                 <p className="text-amber-700 text-sm flex-1">
-                  <span className="font-semibold">{emp?.name ?? '—'}</span> registrou entrada antes do horário previsto
+                  <span className="font-semibold">{emp?.name ?? '—'}</span> registrou entrada antes do horário previsto ({format(new Date(log.timestamp), 'HH:mm')})
                 </p>
               </div>
             )
@@ -208,7 +242,7 @@ export function AdminDashboard() {
 
       {/* ── Cards de resumo ─────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigateAdmin('monitoring')}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -241,15 +275,15 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigateAdmin('overtime')}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-orange-600" />
+              <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', pendingOvertime > 0 ? 'bg-orange-100' : 'bg-gray-100')}>
+                <TrendingUp className={cn('w-5 h-5', pendingOvertime > 0 ? 'text-orange-600' : 'text-gray-400')} />
               </div>
               <div>
                 <p className="text-gray-500 text-xs">HE Pendentes</p>
-                <p className="text-xl font-bold text-gray-800">{pendingOvertime}</p>
+                <p className={cn('text-xl font-bold', pendingOvertime > 0 ? 'text-orange-600' : 'text-gray-800')}>{pendingOvertime}</p>
               </div>
             </div>
           </CardContent>
@@ -270,16 +304,54 @@ export function AdminDashboard() {
         </Card>
       </div>
 
+      {/* ── Quem está trabalhando agora ──────────────────────────── */}
+      {checkedInUsers.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-gray-700 font-semibold mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-green-500" />
+            Trabalhando Agora ({checkedInUsers.length})
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {checkedInUsers.map(emp => {
+              const inLog = todayLogs
+                .filter(l => l.user_id === emp.id && l.type === 'in')
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0]
+              const isLunching = onLunchUsers.some(u => u.id === emp.id)
+              return (
+                <Card key={emp.id} className={cn('border', isLunching ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50')}>
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={cn('w-2 h-2 rounded-full', isLunching ? 'bg-amber-400' : 'bg-green-400 animate-pulse')} />
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm">{emp.name}</p>
+                        <p className="text-gray-500 text-xs">
+                          Entrada: {inLog ? format(new Date(inLog.timestamp), 'HH:mm') : '--:--'}
+                          {isLunching && ' · 🍽 Almoço'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-xs text-gray-500">
+                        {inLog ? formatWorkedTime(inLog) : '--'}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Em Almoço agora ─────────────────────────────────────── */}
       {onLunchUsers.length > 0 && (
         <div className="mb-6">
           <h2 className="text-gray-700 font-semibold mb-3 flex items-center gap-2">
             <Coffee className="w-4 h-4 text-amber-500" />
-            Em Pausa de Almoço Agora
+            Em Pausa de Almoço ({onLunchUsers.length})
           </h2>
           <div className="grid sm:grid-cols-2 gap-2">
             {onLunchUsers.map(emp => {
-              const todayDow   = new Date().getDay()
               const shift      = shifts.find(s => s.user_id === emp.id && s.day_of_week === todayDow)
               const allowed    = shift?.lunch_duration_minutes ?? 60
               const lunchStart = todayLogs
@@ -289,7 +361,6 @@ export function AdminDashboard() {
               const elapsedMs  = lunchStart ? Date.now() - new Date(lunchStart.timestamp).getTime() : 0
               const elapsedMin = Math.floor(elapsedMs / 60000)
               const isOver     = elapsedMin > allowed
-              const _ = tick // force update
 
               return (
                 <Card key={emp.id} className={cn('border', isOver ? 'border-red-300 bg-red-50' : 'border-amber-200 bg-amber-50')}>
@@ -305,10 +376,71 @@ export function AdminDashboard() {
                       <p className={cn('font-black font-mono text-sm', isOver ? 'text-red-600' : 'text-amber-600')}>
                         {lunchStart ? formatElapsed(lunchStart.timestamp) : '--'}
                       </p>
-                      {isOver && <p className="text-red-400 text-xs">Excedido</p>}
+                      {isOver && <p className="text-red-400 text-xs font-semibold">⚠ Excedido</p>}
                     </div>
                   </CardContent>
                 </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Horas Extras de Hoje ─────────────────────────────────── */}
+      {todayHERequests.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-gray-700 font-semibold mb-3 flex items-center gap-2 cursor-pointer" onClick={() => navigateAdmin('overtime')}>
+            <Timer className="w-4 h-4 text-orange-500" />
+            Horas Extras Hoje ({todayHERequests.length})
+            <ArrowRightCircle className="w-3.5 h-3.5 text-gray-400 ml-auto" />
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {todayHERequests.slice(0, 4).map(req => (
+              <Card key={req.id} className={cn('border', req.status === 'pending' ? 'border-orange-200 bg-orange-50' : req.status === 'approved' ? 'border-green-200 bg-green-50' : 'border-gray-200')}>
+                <CardContent className="p-3 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-800 text-sm">
+                      {req.profile?.name ?? `Mat. ${req.user_id.slice(0,6)}`}
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      {Math.floor(req.duration_minutes / 60)}h{req.duration_minutes % 60 > 0 ? ` ${req.duration_minutes % 60}min` : ''}
+                      {req.note && req.note.includes('automaticamente') && ' · Auto'}
+                    </p>
+                  </div>
+                  <span className={cn('text-xs font-semibold px-2 py-1 rounded-full',
+                    req.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                    req.status === 'approved' ? 'bg-green-100 text-green-700' :
+                    'bg-gray-100 text-gray-500'
+                  )}>
+                    {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovada' : 'Rejeitada'}
+                  </span>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {todayHERequests.length > 4 && (
+            <button onClick={() => navigateAdmin('overtime')} className="mt-2 text-sm text-orange-600 hover:underline w-full text-center">
+              Ver todas ({todayHERequests.length})
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Ausentes com escala hoje ──────────────────────────────── */}
+      {absentUsers.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-gray-700 font-semibold mb-3 flex items-center gap-2">
+            <UserX className="w-4 h-4 text-gray-400" />
+            Sem Ponto Registrado ({absentUsers.length})
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {absentUsers.map(emp => {
+              const shift = shifts.find(s => s.user_id === emp.id && s.day_of_week === todayDow)
+              return (
+                <div key={emp.id} className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs">
+                  <span className="font-medium text-gray-700">{emp.name}</span>
+                  {shift && <span className="text-gray-400 ml-1">({shift.start_time.slice(0,5)})</span>}
+                </div>
               )
             })}
           </div>
@@ -357,7 +489,7 @@ export function AdminDashboard() {
             <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
               {todayLogs
                 .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                .slice(0, 20)
+                .slice(0, 30)
                 .map((record: TimeLog) => {
                   const typeConfig = {
                     in:          { label: 'Entrada',    bg: 'bg-green-100',  text: 'text-green-700',  letter: 'E' },

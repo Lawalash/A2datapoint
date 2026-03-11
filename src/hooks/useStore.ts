@@ -51,6 +51,7 @@ export const useStore = create<AppState>((set, get) => ({
   overtimeRequests: [],
   isLoading: false,
   isAuthLoading: true,
+  isLogsLoading: false, // NEW: tracks when fetchTimeLogs is in-flight
 
   // ── Auth ────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export const useStore = create<AppState>((set, get) => ({
         void get().fetchShifts()
       } else {
         void get().fetchShifts()
-        void get().fetchTimeLogs() // Employees also need their own logs
+        void get().fetchTimeLogs()
       }
 
       return { success: true, user: profile, isFirstAccess: profile.is_first_access }
@@ -117,6 +118,7 @@ export const useStore = create<AppState>((set, get) => ({
       shifts: [],
       timeLogs: [],
       overtimeRequests: [],
+      isLogsLoading: false,
     })
   },
 
@@ -289,6 +291,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (error) throw error
 
+      // Add to local state immediately for instant UI update
       set((state) => ({ timeLogs: [newLog as TimeLog, ...state.timeLogs] }))
 
       const timeStr = new Date((newLog as TimeLog).timestamp).toLocaleTimeString('pt-BR', {
@@ -298,6 +301,10 @@ export const useStore = create<AppState>((set, get) => ({
         type === 'lunch_start'
           ? `Saída para almoço registrada às ${timeStr}`
           : `Retorno do almoço registrado às ${timeStr}`
+
+      // CRITICAL FIX: Re-fetch to ensure state consistency
+      // This prevents the race condition where punch state appears reset
+      await get().fetchTimeLogs()
 
       return { success: true, message, log: newLog as TimeLog }
     } catch (err) {
@@ -312,7 +319,6 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      const today = new Date().toISOString().split('T')[0]
       const { data: newLog, error } = await supabase
         .from('time_logs')
         .insert({
@@ -590,7 +596,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // UPDATED: now accepts lunchDurationMinutes
   bulkAssignShifts: async (userIds, days, startTime, endTime, lunchDurationMinutes = 60): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return false
@@ -639,6 +644,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchTimeLogs: async (fromDate?: Date) => {
+    // FIX: set loading state so UI can show spinner and block premature interaction
+    set({ isLogsLoading: true })
+
     const { currentUser } = get()
 
     const from = fromDate ?? (() => {
@@ -661,8 +669,12 @@ export const useStore = create<AppState>((set, get) => ({
 
     const { data, error } = await query
 
-    if (!error && data) set({ timeLogs: data as TimeLog[] })
-    else if (error) console.error('fetchTimeLogs:', error.message)
+    if (!error && data) {
+      set({ timeLogs: data as TimeLog[], isLogsLoading: false })
+    } else {
+      if (error) console.error('fetchTimeLogs:', error.message)
+      set({ isLogsLoading: false })
+    }
   },
 
   fetchOvertimeRequests: async () => {
@@ -685,7 +697,7 @@ export const useStore = create<AppState>((set, get) => ({
     )
   },
 
-  // FIXED: only returns 'in'/'out' logs — lunch logs no longer affect this
+  // Only returns 'in'/'out' logs — lunch logs do NOT affect punch state
   getUserTodayLastLog: () => {
     const { currentUser, timeLogs } = get()
     if (!currentUser) return null
@@ -695,7 +707,7 @@ export const useStore = create<AppState>((set, get) => ({
         (l) =>
           l.user_id === currentUser.id &&
           new Date(l.timestamp).toDateString() === today &&
-          (l.type === 'in' || l.type === 'out') // Apenas pontos, não almoço
+          (l.type === 'in' || l.type === 'out')
       )
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     return userLogs[0] ?? null
@@ -743,14 +755,14 @@ supabase.auth.getSession().then(async ({ data: { session } }) => {
         void store.fetchShifts()
       } else {
         void store.fetchShifts()
-        void store.fetchTimeLogs() // FIX: employees also need their logs on restore
+        void store.fetchTimeLogs()
       }
     } else {
       await supabase.auth.signOut()
-      useStore.setState({ isAuthLoading: false })
+      useStore.setState({ isAuthLoading: false, isLogsLoading: false })
     }
   } else {
-    useStore.setState({ isAuthLoading: false })
+    useStore.setState({ isAuthLoading: false, isLogsLoading: false })
   }
 })
 
@@ -764,31 +776,30 @@ supabase.auth.onAuthStateChange((event) => {
       timeLogs: [],
       overtimeRequests: [],
       shifts: [],
+      isLogsLoading: false,
     })
   }
 })
 
 // ── Realtime Subscriptions ─────────────────────────────────────
-// Supabase Realtime para atualizações em tempo real
-// ATENÇÃO: Ative a replicação das tabelas no Supabase Dashboard:
-// Database → Replication → Adicionar time_logs e overtime_requests
+// IMPORTANTE: Ative replicação no Supabase Dashboard:
+// Database → Replication → adicionar 'time_logs' e 'overtime_requests'
 function setupRealtimeSubscriptions() {
-  // Canal para novos registros de ponto
+  // Canal para time_logs
   supabase
     .channel('realtime:time_logs')
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'time_logs' },
-      async (payload) => {
+      (payload) => {
         const newLog = payload.new as TimeLog
         const state = useStore.getState()
 
-        // Evitar duplicatas
-        if (state.timeLogs.find((l) => l.id === newLog.id)) return
+        // Deduplication check
+        if (state.timeLogs.some((l) => l.id === newLog.id)) return
 
-        // Buscar perfil associado
+        // Attach profile if available (for admin view)
         const profile = state.profiles.find((p) => p.id === newLog.user_id)
-
         const logWithProfile = {
           ...newLog,
           profile: profile ? { name: profile.name, matricula: profile.matricula } : undefined,
@@ -803,18 +814,39 @@ function setupRealtimeSubscriptions() {
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'time_logs' },
       () => {
-        // Re-fetch on updates
         void useStore.getState().fetchTimeLogs()
       }
     )
     .subscribe()
 
-  // Canal para solicitações de hora extra
+  // Canal para overtime_requests — tempo real para o admin ver HE imediatamente
   supabase
     .channel('realtime:overtime_requests')
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'overtime_requests' },
+      { event: 'INSERT', schema: 'public', table: 'overtime_requests' },
+      (payload) => {
+        const newReq = payload.new as OvertimeRequest
+        const state = useStore.getState()
+
+        // Deduplication check
+        if (state.overtimeRequests.some((r) => r.id === newReq.id)) return
+
+        // Attach profile if available
+        const profile = state.profiles.find((p) => p.id === newReq.user_id)
+        const reqWithProfile = {
+          ...newReq,
+          profile: profile ? { name: profile.name, matricula: profile.matricula } : undefined,
+        } as OvertimeRequest
+
+        useStore.setState((s) => ({
+          overtimeRequests: [reqWithProfile, ...s.overtimeRequests],
+        }))
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'overtime_requests' },
       () => {
         void useStore.getState().fetchOvertimeRequests()
       }

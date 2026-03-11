@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider'
 import {
   Camera, LogOut, Clock, CheckCircle2,
   X, Calendar, Timer, Maximize2, Minimize2, WifiOff, ShieldCheck,
-  UtensilsCrossed, Coffee, AlertTriangle
+  UtensilsCrossed, Coffee, AlertTriangle, Loader2
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -75,16 +75,10 @@ export function EmployeeDashboard() {
   const {
     currentUser, logout, registerTime, registerLunch,
     requestOvertime, getUserTodayLastLog, getUserShiftToday,
-    navigateTo, timeLogs, fetchTimeLogs, fetchShifts,
+    navigateTo, timeLogs, isLogsLoading,
   } = useStore()
 
   const isAdmin = currentUser?.role === 'admin'
-
-  // Fetch logs on mount to ensure fresh data after page refresh
-  useEffect(() => {
-    void fetchShifts()
-    void fetchTimeLogs()
-  }, [fetchTimeLogs, fetchShifts])
 
   // Clock tick
   useEffect(() => {
@@ -92,10 +86,10 @@ export function EmployeeDashboard() {
     return () => clearInterval(iv)
   }, [])
 
-  const lastLog    = getUserTodayLastLog() // FIXED: only in/out
+  const lastLog    = getUserTodayLastLog() // only in/out logs
   const shiftToday = getUserShiftToday()
 
-  // FIXED: nextType derived from only 'in'/'out' logs
+  // nextType derived from only 'in'/'out' logs
   const nextType: 'in' | 'out' = lastLog?.type === 'in' ? 'out' : 'in'
 
   // ── Lunch state ── only for non-admin
@@ -104,7 +98,7 @@ export function EmployeeDashboard() {
     .filter((l) => l.user_id === currentUser?.id && new Date(l.timestamp).toDateString() === today)
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
-  // FIXED: checkedIn uses only punch logs
+  // checkedIn uses only punch logs
   const todayPunchLogs = todayUserLogs.filter(l => l.type === 'in' || l.type === 'out')
   const checkedIn = todayPunchLogs[0]?.type === 'in'
 
@@ -130,17 +124,20 @@ export function EmployeeDashboard() {
     return () => clearInterval(iv)
   }, [isOnLunch, lastLunchLog])
 
+  // Auto-switch to 'ponto' tab when lunch finishes or user hasn't checked in
+  useEffect(() => {
+    if (!checkedIn || lunchDone) {
+      setActiveTab('ponto')
+    }
+  }, [checkedIn, lunchDone])
+
   const lunchRemainingSecs  = lunchAllowedSecs - lunchElapsedSecs
   const lunchIsOvertime     = lunchRemainingSecs < 0
 
-  // ── Punch status
+  // ── Punch status — admin always allowed, no schedule check
   const scheduledTime = nextType === 'in' ? shiftToday?.start_time : shiftToday?.end_time
-
-  // Admin always allowed to punch (no schedule enforcement)
   const punchStatus  = isAdmin ? 'allowed' : getPunchStatus(scheduledTime, nextType)
   const punchAllowed = punchStatus === 'allowed' || punchStatus === 'too_late_ot' || punchStatus === 'no_shift'
-
-  // For no_shift: allow punch but no schedule check
   const canPunch = isAdmin ? true : punchAllowed
 
   const toggleFullscreen = useCallback(async () => {
@@ -195,12 +192,18 @@ export function EmployeeDashboard() {
   }
 
   const handleLunch = async () => {
+    if (isLunchReg) return
     setIsLunchReg(true)
     const r = await registerLunch(nextLunchType)
     setIsLunchReg(false)
     if (r.success) {
       toast.success(r.message)
-      if (nextLunchType === 'lunch_start') setActiveTab('almoco')
+      if (nextLunchType === 'lunch_start') {
+        setActiveTab('almoco')
+      } else {
+        // Lunch ended — go back to ponto tab
+        setActiveTab('ponto')
+      }
     } else {
       toast.error(r.message)
     }
@@ -341,7 +344,7 @@ export function EmployeeDashboard() {
         )}
       </div>
 
-      {/* Tabs Ponto / Almoço — oculto para admin */}
+      {/* Tabs Ponto / Almoço — oculto para admin e quando não está trabalhando */}
       {!isAdmin && checkedIn && !lunchDone && (
         <div className="px-5 mb-2">
           <div className="flex bg-white/10 rounded-xl p-1 gap-1">
@@ -372,26 +375,36 @@ export function EmployeeDashboard() {
           <p className="text-white/40 text-sm mt-1 font-mono">{format(currentTime, 'ss')}s</p>
         </div>
 
-        {/* ── ABA PONTO ── */}
-        {(activeTab === 'ponto' || !checkedIn || isAdmin) && (
+        {/* ── LOADING STATE — prevent accidental double-punch on page load ── */}
+        {isLogsLoading && (
+          <div className="flex flex-col items-center gap-3 mb-8">
+            <div className="w-52 h-52 rounded-full bg-white/10 flex flex-col items-center justify-center">
+              <Loader2 className="w-12 h-12 text-white/40 animate-spin mb-2" />
+              <span className="text-white/40 text-sm">Carregando...</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── ABA PONTO (admin: always; employee: when ponto tab or not checked in) ── */}
+        {!isLogsLoading && (activeTab === 'ponto' || !checkedIn || isAdmin) && (
           <>
             <div className="relative mb-8">
-              {canPunch && (
+              {canPunch && !isLogsLoading && (
                 <div className={cn('absolute inset-0 rounded-full animate-ping opacity-20', nextType === 'in' ? 'bg-emerald-400' : 'bg-rose-400')} style={{ animationDuration: '2s' }} />
               )}
               <button
                 onClick={canPunch ? startCamera : undefined}
-                disabled={!canPunch}
+                disabled={!canPunch || isLogsLoading}
                 className={cn(
                   'relative w-52 h-52 rounded-full flex flex-col items-center justify-center shadow-2xl transition-all duration-200 active:scale-95',
-                  canPunch
+                  canPunch && !isLogsLoading
                     ? nextType === 'in'
                       ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-emerald-500/30'
                       : 'bg-gradient-to-br from-rose-400 to-rose-600 shadow-rose-500/30'
                     : 'bg-white/10 cursor-not-allowed'
                 )}
               >
-                {canPunch ? (
+                {canPunch && !isLogsLoading ? (
                   <>
                     <Camera className="w-14 h-14 text-white mb-2" />
                     <span className="text-white font-black text-lg tracking-wide">{nextType === 'in' ? 'ENTRADA' : 'SAÍDA'}</span>
@@ -435,7 +448,7 @@ export function EmployeeDashboard() {
         )}
 
         {/* ── ABA ALMOÇO — apenas funcionários ── */}
-        {!isAdmin && activeTab === 'almoco' && checkedIn && (
+        {!isAdmin && !isLogsLoading && activeTab === 'almoco' && checkedIn && (
           <div className="w-full max-w-xs">
             {/* Status card */}
             <div className="bg-white/10 rounded-2xl p-5 mb-4 text-center">
@@ -470,7 +483,6 @@ export function EmployeeDashboard() {
                   <p className="text-white/50 text-xs mt-0.5">
                     Retornou às {lastLunchLog ? format(new Date(lastLunchLog.timestamp), 'HH:mm') : '--:--'}
                   </p>
-                  {/* Show how long they took */}
                   {(() => {
                     const lunchStart = lunchLogs.find(l => l.type === 'lunch_start')
                     const lunchEnd   = lunchLogs.find(l => l.type === 'lunch_end')
@@ -490,7 +502,8 @@ export function EmployeeDashboard() {
               ) : (
                 <>
                   <p className="text-white font-semibold">Pausa disponível</p>
-                  <p className="text-white/40 text-xs mt-1">{lunchAllowedMinutes}min permitidos</p>
+                  <p className="text-white/40 text-xs mt-0.5">{lunchAllowedMinutes}min permitidos</p>
+                  <p className="text-white/30 text-xs mt-1">Toque em "Saída para Almoço" quando sair</p>
                 </>
               )}
             </div>
@@ -523,7 +536,7 @@ export function EmployeeDashboard() {
 
       {/* Footer */}
       <div className="pb-4 text-center">
-        <p className="text-white/20 text-xs">Mat. {currentUser?.matricula} · A2dataPOINT v2.0</p>
+        <p className="text-white/20 text-xs">Mat. {currentUser?.matricula} · A2dataPOINT v2.1</p>
         {isFullscreen && <p className="text-white/30 text-xs mt-1">Modo tela cheia ativo</p>}
       </div>
     </div>
