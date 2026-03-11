@@ -76,7 +76,7 @@ export interface AppState {
   isAuthLoading: boolean
 
   // Auth
-  login: (matricula: number, password: string) => Promise<AuthResult>
+  login: (matricula: number, password: string, forceEmployeeView?: boolean) => Promise<AuthResult>
   logout: () => Promise<void>
   setFirstAccessComplete: (password: string) => Promise<boolean>
 
