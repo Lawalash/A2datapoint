@@ -73,11 +73,11 @@ export function AdminDashboard() {
       .filter(e => shifts.some(s => s.user_id === e.id && s.day_of_week === todayDow))
       .map(e => {
         const shift = shifts.find(s => s.user_id === e.id && s.day_of_week === todayDow)!
-        const status = statusByUser.get(e.id) ?? 'absent'
+        const status = (statusByUser.get(e.id) ?? 'absent') as 'in' | 'lunch' | 'out' | 'absent'
         return { ...e, shift, status }
       })
       .sort((a, b) => {
-        const order = { in: 0, lunch: 1, out: 2, absent: 3 }
+        const order: Record<string, number> = { in: 0, lunch: 1, out: 2, absent: 3 }
         return order[a.status] - order[b.status]
       }),
     [employees, shifts, todayDow, statusByUser]
