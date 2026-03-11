@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import {
   Trash2, Image, CheckCircle2, HardDrive,
-  AlertTriangle, Loader2, RefreshCw
+  AlertTriangle, Loader2, RefreshCw, X, Maximize2
 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { triggerPhotoCleanup } from '@/lib/supabase'
@@ -17,6 +17,7 @@ import type { TimeLog } from '@/types'
 const STORAGE_LIMIT_MB = 500
 
 export function Storage() {
+  const [photoModal, setPhotoModal] = useState<{ url: string; name: string; time: string } | null>(null)
   const timeLogs = useStore((state) => state.timeLogs)
   const fetchTimeLogs = useStore((state) => state.fetchTimeLogs)
 
@@ -182,7 +183,7 @@ export function Storage() {
             variant="destructive"
             className="w-full h-12"
             onClick={handleClear}
-            disabled={clearing || oldPhotos.length === 0}
+            disabled={clearing || withPhoto.length === 0}
           >
             {clearing ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Limpando...</>
@@ -201,14 +202,25 @@ export function Storage() {
             {withPhoto.slice(0, 6).map((record: TimeLog) => (
               <Card key={record.id}>
                 <CardContent className="p-3 flex items-center gap-3">
-                  <img
-                    src={record.photo_url!}
-                    alt="foto ponto"
-                    className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                    }}
-                  />
+                  <button
+                    onClick={() => setPhotoModal({
+                      url: record.photo_url!,
+                      name: record.profile?.name ?? '—',
+                      time: new Date(record.timestamp).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                    })}
+                    className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-colors shrink-0 relative group"
+                    title="Ver em tela cheia"
+                  >
+                    <img
+                      src={record.photo_url!}
+                      alt="foto ponto"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
+                      <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </button>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-800 text-sm truncate">
                       {record.profile?.name ?? '—'}
@@ -229,6 +241,33 @@ export function Storage() {
             ))}
           </div>
         </>
+      )}
+      {/* Photo Modal */}
+      {photoModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
+          onClick={() => setPhotoModal(null)}
+        >
+          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-white font-semibold">{photoModal.name}</p>
+                <p className="text-white/50 text-sm">{photoModal.time}</p>
+              </div>
+              <button
+                onClick={() => setPhotoModal(null)}
+                className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <img
+              src={photoModal.url}
+              alt="Foto auditoria"
+              className="w-full rounded-2xl object-contain max-h-[70vh]"
+            />
+          </div>
+        </div>
       )}
     </div>
   )

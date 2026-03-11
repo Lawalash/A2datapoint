@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  Users, Clock, Calendar, TrendingUp, AlertCircle
+  Users, Clock, Calendar, TrendingUp, AlertCircle, AlertOctagon, User
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -53,6 +53,9 @@ export function Monitoring() {
   )
   const presentToday = new Set(todayLogs.map((r: TimeLog) => r.user_id)).size
   const absentToday = totalEmployees - presentToday
+
+  // Registros com flag he_not_registered (saída fora do horário sem HE prévia)
+  const unapprovedHELogs = timeLogs.filter((r: TimeLog) => r.flag === 'he_not_registered')
 
   const approvedOT = overtimeRequests.filter((r: OvertimeRequest) => r.status === 'approved')
   const avgOvertimePerDay = approvedOT.length > 0
@@ -160,6 +163,37 @@ export function Monitoring() {
           </div>
         </CardContent>
       </Card>
+
+      {/* HE sem aprovação prévia */}
+      {unapprovedHELogs.length > 0 && (
+        <Card className="bg-orange-50 border-orange-200 mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-orange-800">
+              <AlertOctagon className="w-4 h-4" />
+              HE Não Solicitada ({unapprovedHELogs.length} registro{unapprovedHELogs.length > 1 ? 's' : ''})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-xs text-orange-600 mb-3">
+              Colaboradores que saíram fora do horário sem HE aprovada. Um pedido pendente foi gerado automaticamente.
+            </p>
+            <div className="space-y-2">
+              {unapprovedHELogs.slice(0, 8).map((r: TimeLog) => (
+                <div key={r.id} className="flex items-center gap-3 bg-white rounded-lg p-2.5 border border-orange-100">
+                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-orange-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{r.profile?.name ?? `Mat. ${r.user_id.slice(0,6)}`}</p>
+                    <p className="text-xs text-gray-400">{format(new Date(r.timestamp), 'dd/MM HH:mm')}</p>
+                  </div>
+                  <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium shrink-0">⚠ HE s/ aprovação</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alert */}
       {absentToday > 0 && (

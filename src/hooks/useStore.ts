@@ -214,6 +214,36 @@ export const useStore = create<AppState>((set, get) => ({
           ? `Entrada registrada com sucesso às ${timeStr}`
           : `Saída registrada com sucesso às ${timeStr}`
 
+      // Se saiu tarde sem HE cadastrada, auto-criar pedido pendente
+      if (flag === 'he_not_registered' && type === 'out') {
+        try {
+          const { currentUser: cu, shifts: sh } = get()
+          if (cu) {
+            const todayDow = new Date().getDay()
+            const shiftEnd = sh.find((s) => s.user_id === cu.id && s.day_of_week === todayDow)?.end_time
+            if (shiftEnd) {
+              const [eh, em] = shiftEnd.split(':').map(Number)
+              const scheduled = new Date(); scheduled.setHours(eh, em, 0, 0)
+              const actual = new Date((newLog as TimeLog).timestamp)
+              const overtimeMins = Math.max(0, Math.round((actual.getTime() - scheduled.getTime()) / 60000))
+              if (overtimeMins > 0 && overtimeMins <= 120) {
+                const today = new Date().toISOString().split('T')[0]
+                await supabase.from('overtime_requests').insert({
+                  user_id: cu.id,
+                  date: today,
+                  duration_minutes: overtimeMins,
+                  status: 'pending',
+                  note: 'Gerado automaticamente — saída fora do horário escalonado',
+                })
+                await get().fetchOvertimeRequests()
+              }
+            }
+          }
+        } catch (heErr) {
+          console.error('Erro ao criar HE automática:', heErr)
+        }
+      }
+
       return { success: true, flag, message, log: newLog as TimeLog }
     } catch (err) {
       console.error('Erro ao registrar ponto:', err)
@@ -248,6 +278,36 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.error('Erro ao solicitar HE:', err)
       return false
+    }
+  },
+
+  registerLunch: async (type: 'lunch_start' | 'lunch_end'): Promise<PunchResult> => {
+    const { currentUser } = get()
+    if (!currentUser) return { success: false, message: 'Não autenticado' }
+
+    try {
+      const { data: newLog, error } = await supabase
+        .from('time_logs')
+        .insert({ user_id: currentUser.id, type, flag: null, photo_url: null })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      set((state) => ({ timeLogs: [newLog as TimeLog, ...state.timeLogs] }))
+
+      const timeStr = new Date((newLog as TimeLog).timestamp).toLocaleTimeString('pt-BR', {
+        hour: '2-digit', minute: '2-digit',
+      })
+      const message =
+        type === 'lunch_start'
+          ? `Saída para almoço registrada às ${timeStr}`
+          : `Retorno do almoço registrado às ${timeStr}`
+
+      return { success: true, message, log: newLog as TimeLog }
+    } catch (err) {
+      console.error('Erro ao registrar almoço:', err)
+      return { success: false, message: 'Erro ao registrar. Tente novamente.' }
     }
   },
 

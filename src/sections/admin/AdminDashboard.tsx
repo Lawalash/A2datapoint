@@ -2,15 +2,17 @@
 import { useEffect } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { Card, CardContent } from '@/components/ui/card'
+import { useState } from 'react'
 import {
   Users, BarChart3, Clock, FileText,
-  HardDrive, UserCheck, TrendingUp
+  HardDrive, UserCheck, TrendingUp, X
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { TimeLog } from '@/types'
 
 export function AdminDashboard() {
+  const [photoModal, setPhotoModal] = useState<{ url: string; name: string; time: string } | null>(null)
   const navigateAdmin = useStore((state) => state.navigateAdmin)
   const getTodayLogs = useStore((state) => state.getTodayLogs)
   const profiles = useStore((state) => state.profiles)
@@ -168,11 +170,17 @@ export function AdminDashboard() {
                     </div>
                   </div>
                   {record.photo_url && (
-                    <img
-                      src={record.photo_url}
-                      alt="foto"
-                      className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                    />
+                    <button
+                      onClick={() => setPhotoModal({
+                        url: record.photo_url!,
+                        name: record.profile?.name ?? '—',
+                        time: format(new Date(record.timestamp), 'HH:mm'),
+                      })}
+                      className="w-8 h-8 rounded-full overflow-hidden border-2 border-blue-200 hover:border-blue-500 transition-colors shrink-0"
+                      title="Ver foto em tela cheia"
+                    >
+                      <img src={record.photo_url} alt="foto" className="w-full h-full object-cover" />
+                    </button>
                   )}
                 </div>
               ))}
@@ -185,6 +193,33 @@ export function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+      {/* Photo Modal */}
+      {photoModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
+          onClick={() => setPhotoModal(null)}
+        >
+          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-white font-semibold">{photoModal.name}</p>
+                <p className="text-white/50 text-sm">{photoModal.time}</p>
+              </div>
+              <button
+                onClick={() => setPhotoModal(null)}
+                className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <img
+              src={photoModal.url}
+              alt="Foto auditoria"
+              className="w-full rounded-2xl object-contain max-h-[70vh]"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

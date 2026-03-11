@@ -22,6 +22,7 @@ export function Reports() {
   const fetchOvertimeRequests = useStore((state) => state.fetchOvertimeRequests)
 
   const [generating, setGenerating] = useState(false)
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(() => new Set([format(new Date(), 'yyyy-MM-dd')]))
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -155,6 +156,14 @@ export function Reports() {
   const fmt = (d: Date | null) => (d ? format(d, 'HH:mm') : '--:--')
   const fmtOT = (min: number) =>
     min > 0 ? `${Math.floor(min / 60)}h${min % 60 > 0 ? ` ${min % 60}m` : ''}` : '—'
+
+  const toggleDay = (dateStr: string) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev)
+      next.has(dateStr) ? next.delete(dateStr) : next.add(dateStr)
+      return next
+    })
+  }
 
   const presetLabels: Record<Preset, string> = {
     '7d': 'Últimos 7 dias',
@@ -326,78 +335,96 @@ export function Reports() {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-gray-700">Funcionário</th>
-                <th className="px-3 py-2 text-center font-medium text-gray-700">Data</th>
-                <th className="px-3 py-2 text-center font-medium text-gray-700">Entrada</th>
-                <th className="px-3 py-2 text-center font-medium text-gray-700">Saída</th>
-                <th className="px-3 py-2 text-center font-medium text-gray-700">HE Aprov.</th>
-                <th className="px-3 py-2 text-center font-medium text-gray-700">HE Pend.</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {reportData.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-10 text-center text-gray-400 text-sm">
-                    Nenhum dado disponível para o período seleccionado
-                  </td>
-                </tr>
-              ) : (
-                reportData.map(({ employee, daily }) =>
-                  daily.map((day, idx) => (
-                    <tr
-                      key={`${employee.id}-${idx}`}
-                      className={`hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
-                    >
-                      {idx === 0 && (
-                        <td
-                          rowSpan={daily.length}
-                          className="px-3 py-2 font-medium text-gray-800 align-top border-r border-gray-100"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            <span>{employee.name}</span>
-                          </div>
-                          <div className="text-gray-400 text-xs mt-0.5 ml-5">Mat. {employee.matricula}</div>
-                        </td>
-                      )}
-                      <td className="px-3 py-2 text-center text-gray-500">
-                        {format(day.date, 'dd/MM', { locale: ptBR })}
-                        <span className="text-gray-300 block text-xs">
-                          {format(day.date, 'EEE', { locale: ptBR })}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={day.firstIn ? 'text-green-600 font-medium' : 'text-gray-300'}>
-                          {fmt(day.firstIn)}
-                        </span>
-                        <span className="text-gray-300 block text-xs">({day.scheduledStart})</span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={day.lastOut ? 'text-green-600 font-medium' : 'text-gray-300'}>
-                          {fmt(day.lastOut)}
-                        </span>
-                        <span className="text-gray-300 block text-xs">({day.scheduledEnd})</span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={day.approvedOT > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}>
-                          {fmtOT(day.approvedOT)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={day.pendingOT > 0 ? 'text-orange-500 font-medium' : 'text-gray-300'}>
-                          {fmtOT(day.pendingOT)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )
-              )}
-            </tbody>
-          </table>
+        {/* Accordion por dia */}
+        <div className="divide-y divide-gray-100">
+          {daysInRange.length === 0 ? (
+            <div className="py-10 text-center text-gray-400 text-sm">Nenhum dado disponível</div>
+          ) : (
+            daysInRange.slice().reverse().map((date) => {
+              const dateStr = format(date, 'yyyy-MM-dd')
+              const isExpanded = expandedDays.has(dateStr)
+              const dayRows = reportData
+                .map(({ employee, daily }) => {
+                  const d = daily.find((x) => format(x.date, 'yyyy-MM-dd') === dateStr)
+                  return d ? { employee, day: d } : null
+                })
+                .filter(Boolean) as { employee: (typeof reportData)[0]['employee']; day: (typeof reportData)[0]['daily'][0] }[]
+
+              const presentCount = dayRows.filter((r) => r.day.firstIn).length
+
+              return (
+                <div key={dateStr}>
+                  {/* Day header — accordion toggle */}
+                  <button
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleDay(dateStr)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${isExpanded ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                        {format(date, 'dd')}
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-gray-800 capitalize">
+                          {format(date, "EEEE", { locale: ptBR })}
+                        </p>
+                        <p className="text-xs text-gray-400">{format(date, 'dd/MM/yyyy')}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${presentCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                        {presentCount}/{usersToShow.length} presentes
+                      </span>
+                      <span className="text-gray-400 text-sm">{isExpanded ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+
+                  {/* Expanded table */}
+                  {isExpanded && (
+                    <div className="overflow-x-auto border-t border-gray-100">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium text-gray-600">Funcionário</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Entrada</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">Saída</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">HE Aprov.</th>
+                            <th className="px-3 py-2 text-center font-medium text-gray-600">HE Pend.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {dayRows.map(({ employee, day }) => (
+                            <tr key={employee.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-1.5">
+                                  <User className="w-3 h-3 text-gray-400 shrink-0" />
+                                  <span className="font-medium text-gray-800">{employee.name}</span>
+                                </div>
+                                <div className="text-gray-400 text-xs ml-4">Mat. {employee.matricula}</div>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className={day.firstIn ? 'text-green-600 font-medium' : 'text-gray-300'}>{fmt(day.firstIn)}</span>
+                                <span className="text-gray-300 block text-xs">({day.scheduledStart})</span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className={day.lastOut ? 'text-green-600 font-medium' : 'text-gray-300'}>{fmt(day.lastOut)}</span>
+                                <span className="text-gray-300 block text-xs">({day.scheduledEnd})</span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className={day.approvedOT > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}>{fmtOT(day.approvedOT)}</span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className={day.pendingOT > 0 ? 'text-orange-500 font-medium' : 'text-gray-300'}>{fmtOT(day.pendingOT)}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
     </div>

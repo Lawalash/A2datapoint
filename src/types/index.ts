@@ -20,6 +20,7 @@ export interface Shift {
   day_of_week: number
   start_time: string
   end_time: string
+  lunch_duration_minutes: number
   created_at: string
   updated_at: string
 }
@@ -28,7 +29,7 @@ export interface TimeLog {
   id: string
   user_id: string
   timestamp: string
-  type: 'in' | 'out'
+  type: 'in' | 'out' | 'lunch_start' | 'lunch_end'
   photo_url: string | null
   flag: 'he_not_registered' | 'late' | 'early_exit' | null
   note: string | null
@@ -87,6 +88,7 @@ export interface AppState {
 
   // Time Registration
   registerTime: (type: 'in' | 'out', photoDataUrl?: string) => Promise<PunchResult>
+  registerLunch: (type: 'lunch_start' | 'lunch_end') => Promise<PunchResult>
   requestOvertime: (durationMinutes: number) => Promise<boolean>
 
   // Admin Actions
