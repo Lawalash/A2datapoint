@@ -28,9 +28,8 @@ export function OvertimeApproval() {
 
   const getByDay = (daysAgo: number): OvertimeRequest[] => {
     const target = subDays(new Date(), daysAgo)
-    return overtimeRequests.filter(
-      (r) => new Date(r.date).toDateString() === target.toDateString()
-    )
+    const targetStr = format(target, 'yyyy-MM-dd')
+    return overtimeRequests.filter((r) => r.date === targetStr)
   }
 
   const d0 = getByDay(0)

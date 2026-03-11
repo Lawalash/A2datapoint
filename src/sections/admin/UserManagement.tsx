@@ -17,6 +17,7 @@ import type { Profile } from '@/types'
 
 export function UserManagement() {
   const [newUserName, setNewUserName] = useState('')
+  const [newUserCpf, setNewUserCpf] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [showDialog, setShowDialog] = useState(false)
@@ -37,17 +38,28 @@ export function UserManagement() {
     setTimeout(() => setFeedback(null), 5000)
   }
 
+  // Formatar CPF enquanto o utilizador digita: 000.000.000-00
+  const formatCpf = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11)
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4')
+  }
+
   const handleCreateUser = async () => {
     if (!newUserName.trim()) { showFeedback('error', 'Digite um nome válido.'); return }
     setIsCreating(true)
-    const matricula = await createUser(newUserName.trim())
+    const cpfClean = newUserCpf.replace(/\D/g, '')
+    const matricula = await createUser(newUserName.trim(), cpfClean || undefined)
     setIsCreating(false)
     if (matricula) {
       showFeedback('success', `Criado! Matrícula: ${matricula} · Senha temporária: ${matricula}`)
       setNewUserName('')
+      setNewUserCpf('')
       setShowDialog(false)
     } else {
-      showFeedback('error', 'Erro ao criar. Verifique se a Edge Function "create-user" está activa.')
+      showFeedback('error', 'Erro ao criar. Verifique se a Edge Function "create-user" está activa ou se VITE_SUPABASE_SERVICE_ROLE_KEY está no .env.local.')
     }
   }
 
@@ -146,6 +158,17 @@ export function UserManagement() {
                   autoFocus
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">CPF <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <Input
+                  placeholder="000.000.000-00"
+                  value={newUserCpf}
+                  onChange={(e) => setNewUserCpf(formatCpf(e.target.value))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateUser()}
+                  className="h-12"
+                  inputMode="numeric"
+                />
+              </div>
               <div className="bg-blue-50 p-3 rounded-lg space-y-1">
                 <p className="text-sm text-blue-700">Matrícula: <strong>{nextMatricula}</strong></p>
                 <p className="text-xs text-blue-500">Senha temporária: <strong>{nextMatricula}</strong></p>
@@ -184,6 +207,11 @@ export function UserManagement() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-800 truncate">{profile.name}</p>
                   <p className="text-gray-500 text-sm">Mat. {profile.matricula}</p>
+                  {profile.cpf && (
+                    <p className="text-gray-400 text-xs">CPF: {
+                      profile.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+                    }</p>
+                  )}
                   {profile.is_first_access && (
                     <span className="inline-block mt-0.5 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
                       Aguardando 1º acesso

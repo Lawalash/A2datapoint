@@ -324,15 +324,20 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Cria utilizador: tenta Edge Function primeiro, depois fallback via Admin REST API
-  createUser: async (name: string): Promise<number | null> => {
+  createUser: async (name: string, cpf?: string): Promise<number | null> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return null
 
     try {
       // 1ª tentativa: Edge Function "create-user"
-      const result = await callEdgeFunction('create-user', { name })
+      const result = await callEdgeFunction('create-user', { name, cpf: cpf ?? null })
       if (result.ok) {
         const json = result.data as { matricula: number }
+        // Garantir nome e CPF correctos (edge function pode ter nome padrão)
+        await supabase
+          .from('profiles')
+          .update({ name, cpf: cpf ?? null })
+          .eq('matricula', json.matricula)
         await get().fetchProfiles()
         return json.matricula
       }
@@ -378,13 +383,14 @@ export const useStore = create<AppState>((set, get) => ({
 
       const authUser = (await authRes.json()) as { id: string }
 
-      // Inserir perfil na tabela profiles
+      // Inserir perfil na tabela profiles com nome e CPF
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
           id: authUser.id,
           matricula: nextMat,
           name,
+          cpf: cpf ?? null,
           role: 'employee',
           is_first_access: true,
         })
@@ -408,11 +414,44 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
+      // 1ª tentativa: Edge Function "delete-user"
       const result = await callEdgeFunction('delete-user', { userId })
-      if (!result.ok) {
-        console.error('Erro ao excluir utilizador:', result.error)
+      if (result.ok) {
+        set((state) => ({
+          profiles: state.profiles.filter((p) => p.id !== userId),
+          shifts: state.shifts.filter((s) => s.user_id !== userId),
+          timeLogs: state.timeLogs.filter((l) => l.user_id !== userId),
+          overtimeRequests: state.overtimeRequests.filter((r) => r.user_id !== userId),
+        }))
+        return true
+      }
+      console.warn('Edge Function "delete-user" falhou, tentando fallback:', result.error)
+
+      // 2ª tentativa: Admin REST API
+      const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
+      if (!serviceKey) {
+        console.error('Adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local')
         return false
       }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL as string}/auth/v1/admin/users/${userId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+        }
+      )
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        console.error('Admin REST API falhou ao excluir utilizador:', errBody)
+        return false
+      }
+
+      // Garantir remoção do perfil (em cascata deve apagar, mas como segurança)
+      await supabase.from('profiles').delete().eq('id', userId)
 
       set((state) => ({
         profiles: state.profiles.filter((p) => p.id !== userId),
@@ -427,17 +466,54 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // CORRIGIDO: usa Edge Function reset-password
+  // CORRIGIDO: usa Edge Function reset-password com fallback via Admin REST API
   resetUserPassword: async (userId: string): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
+      // 1ª tentativa: Edge Function "reset-password"
       const result = await callEdgeFunction('reset-password', { userId })
-      if (!result.ok) {
-        console.error('Erro ao resetar senha:', result.error)
+      if (result.ok) {
+        set((state) => ({
+          profiles: state.profiles.map((p) =>
+            p.id === userId ? { ...p, is_first_access: true } : p
+          ),
+        }))
+        return true
+      }
+      console.warn('Edge Function "reset-password" falhou, tentando fallback:', result.error)
+
+      // 2ª tentativa: Admin REST API
+      const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
+      if (!serviceKey) {
+        console.error('Adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local')
         return false
       }
+
+      const profile = get().profiles.find((p) => p.id === userId)
+      if (!profile) return false
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL as string}/auth/v1/admin/users/${userId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+          body: JSON.stringify({ password: String(profile.matricula) }),
+        }
+      )
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        console.error('Admin REST API falhou ao resetar senha:', errBody)
+        return false
+      }
+
+      // Marcar is_first_access = true no perfil
+      await supabase.from('profiles').update({ is_first_access: true }).eq('id', userId)
 
       set((state) => ({
         profiles: state.profiles.map((p) =>
