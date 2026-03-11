@@ -383,21 +383,21 @@ export const useStore = create<AppState>((set, get) => ({
 
       const authUser = (await authRes.json()) as { id: string }
 
-      // Inserir perfil na tabela profiles com nome e CPF
+      // Upsert do perfil — caso já exista (criado por trigger com nome padrão),
+      // actualiza com o nome e CPF correctos
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
-          id: authUser.id,
-          matricula: nextMat,
-          name,
-          cpf: cpf ?? null,
-          role: 'employee',
-          is_first_access: true,
-        })
+        .upsert(
+          { id: authUser.id, matricula: nextMat, name, cpf: cpf ?? null, role: 'employee', is_first_access: true },
+          { onConflict: 'id' }
+        )
 
       if (profileError) {
-        console.error('Falha ao inserir perfil:', profileError)
-        return null
+        // Último recurso: UPDATE directo
+        await supabase
+          .from('profiles')
+          .update({ name, cpf: cpf ?? null, matricula: nextMat, is_first_access: true })
+          .eq('id', authUser.id)
       }
 
       await get().fetchProfiles()
