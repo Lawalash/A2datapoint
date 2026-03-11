@@ -5,11 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import {
   Camera, LogOut, Clock, CheckCircle2,
-  X, Calendar, Timer, Maximize2, Minimize2, WifiOff, ShieldCheck,
+  X, Calendar, Maximize2, Minimize2, WifiOff, ShieldCheck,
   UtensilsCrossed, Coffee, AlertTriangle, Loader2
 } from 'lucide-react'
 import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { PunchResult } from '@/types'
