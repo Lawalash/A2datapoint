@@ -57,17 +57,15 @@ export const useStore = create<AppState>((set, get) => ({
   login: async (matricula: number, password: string, forceEmployeeView = false): Promise<AuthResult> => {
     set({ isAuthLoading: true })
     try {
-      // O email de todos os utilizadores segue o padrão: {matricula}@a2datapoint.internal
       const email = `${matricula}@a2datapoint.internal`
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error || !data.user) {
-        console.error('Auth error:', error?.message) // ← adicionar isso
+        console.error('Auth error:', error?.message)
         set({ isAuthLoading: false })
         return { success: false, error: 'Matrícula ou senha incorretos.' }
       }
-
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -92,14 +90,13 @@ export const useStore = create<AppState>((set, get) => ({
       set({ currentUser: profile, currentView: nextView, isAuthLoading: false })
 
       if (profile.role === 'admin') {
-        // Carregar dados do admin em background
         void get().fetchProfiles()
         void get().fetchTimeLogs()
         void get().fetchOvertimeRequests()
         void get().fetchShifts()
       } else {
-        // Funcionário também precisa dos próprios turnos
         void get().fetchShifts()
+        void get().fetchTimeLogs() // Employees also need their own logs
       }
 
       return { success: true, user: profile, isFirstAccess: profile.is_first_access }
@@ -128,11 +125,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser) return false
 
     try {
-      // Actualizar senha no Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({ password })
       if (authError) throw authError
 
-      // Marcar is_first_access = false no perfil
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ is_first_access: false })
@@ -151,6 +146,7 @@ export const useStore = create<AppState>((set, get) => ({
         void get().fetchShifts()
       } else {
         void get().fetchShifts()
+        void get().fetchTimeLogs()
       }
 
       return true
@@ -182,7 +178,6 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isLoading: true })
 
     try {
-      // Validar janela de ponto via RPC
       const { data: validationResult } = await supabase.rpc('validate_punch_time', {
         p_user_id: currentUser.id,
         p_type: type,
@@ -191,7 +186,6 @@ export const useStore = create<AppState>((set, get) => ({
       const flag: TimeLog['flag'] =
         validationResult === 'he_not_registered' ? 'he_not_registered' : null
 
-      // Upload da foto
       let photoUrl: string | null = null
       if (photoDataUrl) {
         photoUrl = await uploadPhoto(currentUser.id, photoDataUrl)
@@ -216,7 +210,6 @@ export const useStore = create<AppState>((set, get) => ({
           ? `Entrada registrada com sucesso às ${timeStr}`
           : `Saída registrada com sucesso às ${timeStr}`
 
-      // Se saiu tarde sem HE cadastrada, auto-criar pedido pendente
       if (flag === 'he_not_registered' && type === 'out') {
         try {
           const { currentUser: cu, shifts: sh } = get()
@@ -313,6 +306,35 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  // Registra logout automático pelo sistema (quando colaborador não saiu no horário)
+  registerLogoutByAgent: async (userId: string): Promise<boolean> => {
+    const { currentUser } = get()
+    if (!currentUser || currentUser.role !== 'admin') return false
+
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const { data: newLog, error } = await supabase
+        .from('time_logs')
+        .insert({
+          user_id: userId,
+          type: 'out',
+          flag: 'logout_by_agent',
+          photo_url: null,
+          note: 'Saída registrada automaticamente pelo sistema — colaborador não realizou saída manual',
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      set((state) => ({ timeLogs: [newLog as TimeLog, ...state.timeLogs] }))
+      return true
+    } catch (err) {
+      console.error('Erro ao registrar logout automático:', err)
+      return false
+    }
+  },
+
   // ── Admin Actions ────────────────────────────────────────────
 
   approveOvertime: async (requestId: string): Promise<boolean> => {
@@ -323,7 +345,6 @@ export const useStore = create<AppState>((set, get) => ({
       const request = get().overtimeRequests.find((r) => r.id === requestId)
       if (!request) return false
 
-      // Regra: só D-0, D-1 e D-2
       const requestDate = new Date(request.date)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
@@ -385,17 +406,14 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Cria utilizador: tenta Edge Function primeiro, depois fallback via Admin REST API
   createUser: async (name: string, cpf?: string): Promise<number | null> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return null
 
     try {
-      // 1ª tentativa: Edge Function "create-user"
       const result = await callEdgeFunction('create-user', { name, cpf: cpf ?? null })
       if (result.ok) {
         const json = result.data as { matricula: number }
-        // Garantir nome e CPF correctos (edge function pode ter nome padrão)
         await supabase
           .from('profiles')
           .update({ name, cpf: cpf ?? null })
@@ -405,17 +423,12 @@ export const useStore = create<AppState>((set, get) => ({
       }
       console.warn('Edge Function "create-user" falhou, tentando fallback directo:', result.error)
 
-      // 2ª tentativa: Admin REST API (requer VITE_SUPABASE_SERVICE_ROLE_KEY no .env.local)
       const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
       if (!serviceKey) {
-        console.error(
-          'Fallback falhou: adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local\n' +
-          'Ou implante a Edge Function "create-user" no Supabase.'
-        )
+        console.error('Adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local')
         return null
       }
 
-      // Calcular próxima matrícula usando TODOS os perfis
       const allProfiles = get().profiles
       const nextMat = allProfiles.length > 0
         ? Math.max(...allProfiles.map((p) => p.matricula)) + 1
@@ -423,7 +436,6 @@ export const useStore = create<AppState>((set, get) => ({
       const email = `${nextMat}@a2datapoint.internal`
       const password = String(nextMat)
 
-      // Criar utilizador no Supabase Auth via Admin API
       const authRes = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL as string}/auth/v1/admin/users`,
         {
@@ -445,8 +457,6 @@ export const useStore = create<AppState>((set, get) => ({
 
       const authUser = (await authRes.json()) as { id: string }
 
-      // Upsert do perfil — caso já exista (criado por trigger com nome padrão),
-      // actualiza com o nome e CPF correctos
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert(
@@ -455,7 +465,6 @@ export const useStore = create<AppState>((set, get) => ({
         )
 
       if (profileError) {
-        // Último recurso: UPDATE directo
         await supabase
           .from('profiles')
           .update({ name, cpf: cpf ?? null, matricula: nextMat, is_first_access: true })
@@ -470,13 +479,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // CORRIGIDO: usa Edge Function delete-user (apaga do auth.users em cascata)
   deleteUser: async (userId: string): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      // 1ª tentativa: Edge Function "delete-user"
       const result = await callEdgeFunction('delete-user', { userId })
       if (result.ok) {
         set((state) => ({
@@ -489,7 +496,6 @@ export const useStore = create<AppState>((set, get) => ({
       }
       console.warn('Edge Function "delete-user" falhou, tentando fallback:', result.error)
 
-      // 2ª tentativa: Admin REST API
       const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
       if (!serviceKey) {
         console.error('Adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local')
@@ -512,7 +518,6 @@ export const useStore = create<AppState>((set, get) => ({
         return false
       }
 
-      // Garantir remoção do perfil (em cascata deve apagar, mas como segurança)
       await supabase.from('profiles').delete().eq('id', userId)
 
       set((state) => ({
@@ -528,13 +533,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // CORRIGIDO: usa Edge Function reset-password com fallback via Admin REST API
   resetUserPassword: async (userId: string): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      // 1ª tentativa: Edge Function "reset-password"
       const result = await callEdgeFunction('reset-password', { userId })
       if (result.ok) {
         set((state) => ({
@@ -546,7 +549,6 @@ export const useStore = create<AppState>((set, get) => ({
       }
       console.warn('Edge Function "reset-password" falhou, tentando fallback:', result.error)
 
-      // 2ª tentativa: Admin REST API
       const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
       if (!serviceKey) {
         console.error('Adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local')
@@ -574,7 +576,6 @@ export const useStore = create<AppState>((set, get) => ({
         return false
       }
 
-      // Marcar is_first_access = true no perfil
       await supabase.from('profiles').update({ is_first_access: true }).eq('id', userId)
 
       set((state) => ({
@@ -589,7 +590,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  bulkAssignShifts: async (userIds, days, startTime, endTime): Promise<boolean> => {
+  // UPDATED: now accepts lunchDurationMinutes
+  bulkAssignShifts: async (userIds, days, startTime, endTime, lunchDurationMinutes = 60): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return false
 
@@ -599,6 +601,7 @@ export const useStore = create<AppState>((set, get) => ({
         p_days: days,
         p_start_time: startTime,
         p_end_time: endTime,
+        p_lunch_duration_minutes: lunchDurationMinutes,
       })
       if (error) throw error
       await get().fetchShifts()
@@ -626,7 +629,6 @@ export const useStore = create<AppState>((set, get) => ({
 
     let query = supabase.from('shifts').select('*')
 
-    // Admin carrega todos; funcionário carrega apenas os seus
     if (currentUser.role !== 'admin') {
       query = query.eq('user_id', currentUser.id)
     }
@@ -637,18 +639,27 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchTimeLogs: async (fromDate?: Date) => {
+    const { currentUser } = get()
+
     const from = fromDate ?? (() => {
       const d = new Date()
       d.setDate(d.getDate() - 7)
       return d
     })()
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('time_logs')
       .select('*, profile:profiles(name, matricula)')
       .gte('timestamp', from.toISOString())
       .order('timestamp', { ascending: false })
       .limit(500)
+
+    // Employees only see their own logs
+    if (currentUser && currentUser.role !== 'admin') {
+      query = query.eq('user_id', currentUser.id)
+    }
+
+    const { data, error } = await query
 
     if (!error && data) set({ timeLogs: data as TimeLog[] })
     else if (error) console.error('fetchTimeLogs:', error.message)
@@ -674,6 +685,7 @@ export const useStore = create<AppState>((set, get) => ({
     )
   },
 
+  // FIXED: only returns 'in'/'out' logs — lunch logs no longer affect this
   getUserTodayLastLog: () => {
     const { currentUser, timeLogs } = get()
     if (!currentUser) return null
@@ -682,7 +694,8 @@ export const useStore = create<AppState>((set, get) => ({
       .filter(
         (l) =>
           l.user_id === currentUser.id &&
-          new Date(l.timestamp).toDateString() === today
+          new Date(l.timestamp).toDateString() === today &&
+          (l.type === 'in' || l.type === 'out') // Apenas pontos, não almoço
       )
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     return userLogs[0] ?? null
@@ -729,11 +742,10 @@ supabase.auth.getSession().then(async ({ data: { session } }) => {
         void store.fetchOvertimeRequests()
         void store.fetchShifts()
       } else {
-        // BUG FIX: funcionário também precisa carregar os turnos
         void store.fetchShifts()
+        void store.fetchTimeLogs() // FIX: employees also need their logs on restore
       }
     } else {
-      // Sessão existente mas perfil não encontrado — limpar
       await supabase.auth.signOut()
       useStore.setState({ isAuthLoading: false })
     }
@@ -755,3 +767,59 @@ supabase.auth.onAuthStateChange((event) => {
     })
   }
 })
+
+// ── Realtime Subscriptions ─────────────────────────────────────
+// Supabase Realtime para atualizações em tempo real
+// ATENÇÃO: Ative a replicação das tabelas no Supabase Dashboard:
+// Database → Replication → Adicionar time_logs e overtime_requests
+function setupRealtimeSubscriptions() {
+  // Canal para novos registros de ponto
+  supabase
+    .channel('realtime:time_logs')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'time_logs' },
+      async (payload) => {
+        const newLog = payload.new as TimeLog
+        const state = useStore.getState()
+
+        // Evitar duplicatas
+        if (state.timeLogs.find((l) => l.id === newLog.id)) return
+
+        // Buscar perfil associado
+        const profile = state.profiles.find((p) => p.id === newLog.user_id)
+
+        const logWithProfile = {
+          ...newLog,
+          profile: profile ? { name: profile.name, matricula: profile.matricula } : undefined,
+        } as TimeLog
+
+        useStore.setState((s) => ({
+          timeLogs: [logWithProfile, ...s.timeLogs],
+        }))
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'time_logs' },
+      () => {
+        // Re-fetch on updates
+        void useStore.getState().fetchTimeLogs()
+      }
+    )
+    .subscribe()
+
+  // Canal para solicitações de hora extra
+  supabase
+    .channel('realtime:overtime_requests')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'overtime_requests' },
+      () => {
+        void useStore.getState().fetchOvertimeRequests()
+      }
+    )
+    .subscribe()
+}
+
+setupRealtimeSubscriptions()
