@@ -1,4 +1,7 @@
 // supabase/functions/reset-password/index.ts
+// Deploy: supabase functions deploy reset-password
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -6,7 +9,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-Deno.serve(async (req: Request) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -20,29 +23,31 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    // Verificar admin
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    const { data: { user } } = await supabaseUser.auth.getUser()
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Sessão inválida' }), {
+    // Verifica se o chamador é admin
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Token inválido' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { data: callerProfile } = await supabaseUser
+    const { data: callerProfile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
     if (callerProfile?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Apenas administradores podem resetar senhas' }), {
+      return new Response(JSON.stringify({ error: 'Apenas admins podem resetar senhas' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -50,63 +55,43 @@ Deno.serve(async (req: Request) => {
 
     const { userId } = await req.json() as { userId: string }
 
-    if (!userId) {
-      return new Response(JSON.stringify({ error: 'userId é obrigatório' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-
-    // Buscar matrícula do utilizador para usar como nova senha temporária
-    const { data: targetProfile } = await supabaseAdmin
+    // Busca matrícula do utilizador
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('matricula')
       .eq('id', userId)
       .single()
 
-    if (!targetProfile) {
+    if (profileError || !profile) {
       return new Response(JSON.stringify({ error: 'Utilizador não encontrado' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const newPassword = String(targetProfile.matricula)
-
-    // Resetar senha via Admin API
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      password: newPassword,
+    // Reset senha para a matrícula
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: String(profile.matricula),
     })
 
     if (updateError) {
-      console.error('Erro ao resetar senha:', updateError)
       return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Marcar is_first_access = true para forçar troca de senha
-    await supabaseAdmin
-      .from('profiles')
-      .update({ is_first_access: true })
-      .eq('id', userId)
+    // Marca is_first_access = true
+    await supabase.from('profiles').update({ is_first_access: true }).eq('id', userId)
 
     return new Response(
-      JSON.stringify({ success: true, newPassword }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (err) {
-    console.error('Erro inesperado:', err)
-    return new Response(JSON.stringify({ error: 'Erro interno do servidor' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: (error as Error).message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 })
