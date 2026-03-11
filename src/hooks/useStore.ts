@@ -63,9 +63,11 @@ export const useStore = create<AppState>((set, get) => ({
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error || !data.user) {
+        console.error('Auth error:', error?.message) // ← adicionar isso
         set({ isAuthLoading: false })
         return { success: false, error: 'Matrícula ou senha incorretos.' }
       }
+
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
