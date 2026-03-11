@@ -160,7 +160,15 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ── Navigation ──────────────────────────────────────────────
 
-  navigateTo: (view: AppView) => set({ currentView: view }),
+  navigateTo: (view: AppView) => {
+    set({ currentView: view })
+    if (view === 'admin') {
+      void get().fetchProfiles()
+      void get().fetchTimeLogs()
+      void get().fetchOvertimeRequests()
+      void get().fetchShifts()
+    }
+  },
   navigateAdmin: (view: AdminView) => set({ adminView: view }),
 
   // ── Time Registration ────────────────────────────────────────

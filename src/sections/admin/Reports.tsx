@@ -28,10 +28,11 @@ export function Reports() {
     fetchOvertimeRequests()
   }, [fetchTimeLogs, fetchOvertimeRequests])
 
-  const employees = profiles.filter((p) => p.role === 'employee')
+  // Inclui todos os perfis (admin + funcionários) no relatório
+  const allUsers = profiles
   const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i))
 
-  const reportData = employees.map((emp) => {
+  const reportData = allUsers.map((emp) => {
     const daily = last7Days.map((date) => {
       const dayLogs = timeLogs
         .filter(
