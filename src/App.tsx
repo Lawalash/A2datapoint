@@ -63,13 +63,13 @@ function App() {
     return <LoadingScreen />
   }
 
-  // Employee views: wrapped in mobile container
+  // Employee views: mobile-first, full screen on small devices, capped on large
   if (currentView === 'login' || currentView === 'first-access' || currentView === 'employee-dashboard') {
     return (
       <>
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="min-h-dvh sm:min-h-screen sm:bg-gray-900 sm:flex sm:items-center sm:justify-center">
           <div
-            className="w-full bg-white shadow-2xl overflow-hidden"
+            className="w-full bg-white sm:shadow-2xl overflow-hidden"
             style={{
               maxWidth: '430px',
               minHeight: '100dvh',

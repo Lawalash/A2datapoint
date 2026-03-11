@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import {
   Camera, LogOut, Clock, CheckCircle2,
-  X, Calendar, Timer, Maximize2, Minimize2, WifiOff
+  X, Calendar, Timer, Maximize2, Minimize2, WifiOff, ShieldCheck
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -37,7 +37,7 @@ export function EmployeeDashboard() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { currentUser, logout, registerTime, requestOvertime, getUserTodayLastLog, getUserShiftToday } = useStore()
+  const { currentUser, logout, registerTime, requestOvertime, getUserTodayLastLog, getUserShiftToday, navigateTo } = useStore()
 
   const lastLog = getUserTodayLastLog()
   const shiftToday = getUserShiftToday()
@@ -337,6 +337,15 @@ export function EmployeeDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {currentUser?.role === 'admin' && (
+            <button
+              onClick={() => navigateTo('admin')}
+              className="w-9 h-9 rounded-xl bg-[#00b4d8]/20 border border-[#00b4d8]/30 flex items-center justify-center text-[#00b4d8] hover:bg-[#00b4d8]/30 transition-colors"
+              title="Painel Administrativo"
+            >
+              <ShieldCheck className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={toggleFullscreen}
             className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white/70 hover:bg-white/20 transition-colors"

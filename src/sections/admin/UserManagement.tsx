@@ -77,7 +77,8 @@ export function UserManagement() {
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(p.matricula).includes(searchTerm)
   )
-  const nextMatricula = employees.length > 0 ? Math.max(...employees.map((p) => p.matricula)) + 1 : 1
+  // Usa TODOS os perfis (admin + employees) para calcular a próxima matrícula
+  const nextMatricula = profiles.length > 0 ? Math.max(...profiles.map((p) => p.matricula)) + 1 : 1
 
   return (
     <div className="p-4 lg:p-8 max-w-3xl mx-auto">

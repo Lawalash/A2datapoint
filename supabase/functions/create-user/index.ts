@@ -1,8 +1,7 @@
 // supabase/functions/create-user/index.ts
-// Cria um novo utilizador com senha temporária = matrícula
-// Deploy: supabase functions deploy create-user
+// Deploy com: supabase functions deploy create-user
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -16,87 +15,105 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const supabase = createClient(
+    // Autenticar o chamador como admin
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Verificar se o chamador é admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Token inválido' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Verificar se o utilizador que chama é admin
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { data: callerProfile } = await supabase
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    )
+
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Token inválido' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (callerProfile?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Apenas admins podem criar utilizadores' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (profile?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Apenas administradores podem criar utilizadores' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
+    // Obter o nome do body
     const { name } = await req.json() as { name: string }
+    if (!name?.trim()) {
+      return new Response(JSON.stringify({ error: 'Nome é obrigatório' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    // Calcular próxima matrícula
-    const { data: maxProfile } = await supabase
+    // Calcular próxima matrícula (usa TODOS os perfis, admin + employee)
+    const { data: allProfiles } = await supabaseAdmin
       .from('profiles')
       .select('matricula')
       .order('matricula', { ascending: false })
       .limit(1)
-      .single()
 
-    const matricula = (maxProfile?.matricula ?? 0) + 1
-    const email = `${matricula}@a2datapoint.internal`
+    const nextMatricula = allProfiles && allProfiles.length > 0
+      ? (allProfiles[0].matricula as number) + 1
+      : 1
 
-    // Senha temporária = matrícula (funcionário define a própria no 1º acesso)
-    const tempPassword = String(matricula)
+    const email = `${nextMatricula}@a2datapoint.internal`
+    const password = String(nextMatricula)
 
-    const { data: newUser, error } = await supabase.auth.admin.createUser({
+    // Criar utilizador no Auth
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: tempPassword,
+      password,
       email_confirm: true,
-      user_metadata: {
-        name,
-        role: 'employee',
-        is_first_access: true,
-      },
     })
 
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (createError || !newUser.user) {
+      return new Response(JSON.stringify({ error: createError?.message ?? 'Falha ao criar utilizador' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Inserir perfil
+    const { error: profileError } = await supabaseAdmin.from('profiles').insert({
+      id: newUser.user.id,
+      matricula: nextMatricula,
+      name: name.trim(),
+      role: 'employee',
+      is_first_access: true,
+    })
+
+    if (profileError) {
+      // Reverter criação do utilizador Auth se o perfil falhar
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      return new Response(JSON.stringify({ error: profileError.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     return new Response(
-      JSON.stringify({ matricula, userId: newUser.user.id }),
+      JSON.stringify({ matricula: nextMatricula, id: newUser.user.id }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (error) {
-    console.error('Create user error:', error)
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+  } catch (err) {
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 })

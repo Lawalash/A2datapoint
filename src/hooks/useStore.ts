@@ -54,7 +54,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ── Auth ────────────────────────────────────────────────────
 
-  login: async (matricula: number, password: string): Promise<AuthResult> => {
+  login: async (matricula: number, password: string, forceEmployeeView = false): Promise<AuthResult> => {
     set({ isAuthLoading: true })
     try {
       // O email de todos os utilizadores segue o padrão: {matricula}@a2datapoint.internal
@@ -81,9 +81,11 @@ export const useStore = create<AppState>((set, get) => ({
 
       const nextView: AppView = profile.is_first_access
         ? 'first-access'
-        : profile.role === 'admin'
-          ? 'admin'
-          : 'employee-dashboard'
+        : forceEmployeeView
+          ? 'employee-dashboard'
+          : profile.role === 'admin'
+            ? 'admin'
+            : 'employee-dashboard'
 
       set({ currentUser: profile, currentView: nextView, isAuthLoading: false })
 
@@ -313,20 +315,79 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  // CORRIGIDO: usa Edge Function create-user
+  // Cria utilizador: tenta Edge Function primeiro, depois fallback via Admin REST API
   createUser: async (name: string): Promise<number | null> => {
     const { currentUser } = get()
     if (!currentUser || currentUser.role !== 'admin') return null
 
     try {
+      // 1ª tentativa: Edge Function "create-user"
       const result = await callEdgeFunction('create-user', { name })
-      if (!result.ok) {
-        console.error('Erro ao criar utilizador:', result.error)
+      if (result.ok) {
+        const json = result.data as { matricula: number }
+        await get().fetchProfiles()
+        return json.matricula
+      }
+      console.warn('Edge Function "create-user" falhou, tentando fallback directo:', result.error)
+
+      // 2ª tentativa: Admin REST API (requer VITE_SUPABASE_SERVICE_ROLE_KEY no .env.local)
+      const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
+      if (!serviceKey) {
+        console.error(
+          'Fallback falhou: adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local\n' +
+          'Ou implante a Edge Function "create-user" no Supabase.'
+        )
         return null
       }
-      const json = result.data as { matricula: number }
+
+      // Calcular próxima matrícula usando TODOS os perfis
+      const allProfiles = get().profiles
+      const nextMat = allProfiles.length > 0
+        ? Math.max(...allProfiles.map((p) => p.matricula)) + 1
+        : 1
+      const email = `${nextMat}@a2datapoint.internal`
+      const password = String(nextMat)
+
+      // Criar utilizador no Supabase Auth via Admin API
+      const authRes = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL as string}/auth/v1/admin/users`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+          },
+          body: JSON.stringify({ email, password, email_confirm: true }),
+        }
+      )
+
+      if (!authRes.ok) {
+        const errBody = await authRes.json().catch(() => ({}))
+        console.error('Admin REST API falhou ao criar auth user:', errBody)
+        return null
+      }
+
+      const authUser = (await authRes.json()) as { id: string }
+
+      // Inserir perfil na tabela profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authUser.id,
+          matricula: nextMat,
+          name,
+          role: 'employee',
+          is_first_access: true,
+        })
+
+      if (profileError) {
+        console.error('Falha ao inserir perfil:', profileError)
+        return null
+      }
+
       await get().fetchProfiles()
-      return json.matricula
+      return nextMat
     } catch (err) {
       console.error('Erro ao criar utilizador:', err)
       return null
