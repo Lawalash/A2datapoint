@@ -71,7 +71,7 @@ serve(async (req) => {
 
     // Reset senha para a matrícula
     const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
-      password: String(profile.matricula),
+      password: String(profile.matricula).padStart(6, '0'),
     })
 
     if (updateError) {

@@ -24,6 +24,7 @@ async function callEdgeFunction(
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session?.access_token ?? ''}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
@@ -98,7 +99,6 @@ export const useStore = create<AppState>((set, get) => ({
       } else {
         void get().fetchShifts()
         void get().fetchTimeLogs()
-        void get().fetchOvertimeRequests()
       }
 
       return { success: true, user: profile, isFirstAccess: profile.is_first_access }
@@ -253,7 +253,7 @@ export const useStore = create<AppState>((set, get) => ({
   requestOvertime: async (durationMinutes: number): Promise<boolean> => {
     const { currentUser } = get()
     if (!currentUser) return false
-    if (durationMinutes > 360) return false // máximo 6h de HE/compensação
+    if (durationMinutes > 105) return false
 
     try {
       const today = new Date().toISOString().split('T')[0]
@@ -441,7 +441,7 @@ export const useStore = create<AppState>((set, get) => ({
         ? Math.max(...allProfiles.map((p) => p.matricula)) + 1
         : 1
       const email = `${nextMat}@a2datapoint.internal`
-      const password = String(nextMat)
+      const password = String(nextMat).padStart(6, '0')
 
       const authRes = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL as string}/auth/v1/admin/users`,
@@ -545,7 +545,6 @@ export const useStore = create<AppState>((set, get) => ({
     if (!currentUser || currentUser.role !== 'admin') return false
 
     try {
-      // 1. Tentar Edge Function primeiro
       const result = await callEdgeFunction('reset-password', { userId })
       if (result.ok) {
         set((state) => ({
@@ -555,16 +554,11 @@ export const useStore = create<AppState>((set, get) => ({
         }))
         return true
       }
-      console.warn('Edge Function "reset-password" falhou, tentando fallback directo:', result.error)
+      console.warn('Edge Function "reset-password" falhou, tentando fallback:', result.error)
 
-      // 2. Fallback via service role key
       const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string | undefined
       if (!serviceKey) {
-        console.error(
-          '[reset-password] VITE_SUPABASE_SERVICE_ROLE_KEY não configurado.\n' +
-          'Solução: Adicione esta variável no painel da Vercel → Settings → Environment Variables\n' +
-          'OU implante a Edge Function "reset-password" no Supabase Dashboard.'
-        )
+        console.error('Adicione VITE_SUPABASE_SERVICE_ROLE_KEY ao .env.local')
         return false
       }
 
@@ -580,12 +574,9 @@ export const useStore = create<AppState>((set, get) => ({
             Authorization: `Bearer ${serviceKey}`,
             apikey: serviceKey,
           },
-          body: JSON.stringify({
-            password: String(profile.matricula),
-          }),
+          body: JSON.stringify({ password: String(profile.matricula).padStart(6, '0') }),
         }
       )
-
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}))
         console.error('Admin REST API falhou ao resetar senha:', errBody)
@@ -667,7 +658,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     let query = supabase
       .from('time_logs')
-      .select('*, profile:profiles(name, matricula)')
+      .select('*, profile:profiles!time_logs_user_id_fkey(name, matricula)')
       .gte('timestamp', from.toISOString())
       .order('timestamp', { ascending: false })
       .limit(500)
@@ -690,9 +681,10 @@ export const useStore = create<AppState>((set, get) => ({
   fetchOvertimeRequests: async () => {
     const { currentUser } = get()
 
+    // FK hint evita erro "more than one relationship found"
     let query = supabase
       .from('overtime_requests')
-      .select('*, profile:profiles(name, matricula)')
+      .select('*, profile:profiles!overtime_requests_user_id_fkey(name, matricula)')
       .order('created_at', { ascending: false })
       .limit(500)
 
@@ -775,7 +767,6 @@ supabase.auth.getSession().then(async ({ data: { session } }) => {
       } else {
         void store.fetchShifts()
         void store.fetchTimeLogs()
-        void store.fetchOvertimeRequests()
       }
     } else {
       await supabase.auth.signOut()
