@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de Homologação DEV - A2 DataPoint</title>
+  <style>
+    :root {
+      --primary: #003D5C;
+      --primary-dark: #002B42;
+      --secondary: #F8F9FA;
+      --text-main: #1A1A1A;
+      --text-muted: #666666;
+      --border: #E5E5E5;
+      --success: #28A745;
+      --warning: #D9822B;
+      --danger: #DC3545;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--secondary);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    }
+
+    .header {
+      background-color: var(--primary);
+      color: #FFFFFF;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .header p {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .content {
+      padding: 40px;
+    }
+
+    .section {
+      margin-bottom: 40px;
+    }
+
+    .section h2 {
+      color: var(--primary);
+      font-size: 22px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card h3 {
+      color: var(--primary-dark);
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+
+    ul {
+      list-style-position: inside;
+      margin-bottom: 15px;
+    }
+
+    li {
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+
+    strong {
+      color: var(--text-main);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .badge-success { background: #E8F5E9; color: var(--success); }
+    .badge-warning { background: #FFF3E0; color: var(--warning); }
+
+    .signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-top: 60px;
+      padding-top: 40px;
+      border-top: 2px dashed var(--border);
+    }
+
+    .signature-block {
+      text-align: center;
+    }
+
+    .signature-line {
+      width: 80%;
+      height: 1px;
+      background-color: var(--text-main);
+      margin: 0 auto 10px auto;
+    }
+
+    .signature-name {
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .signature-role {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .highlight-box {
+      background-color: #E3F2FD;
+      border-left: 4px solid var(--primary);
+      padding: 15px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 20px;
+    }
+
+    @media print {
+      body { background-color: #FFF; padding: 0; }
+      .container { box-shadow: none; border-radius: 0; max-width: 100%; }
+      .header { padding: 30px; }
+      .content { padding: 30px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <h1>A2 DataPoint</h1>
+      <p>Relatório de Homologação DEV</p>
+    </div>
+
+    <div class="content">
+      
+      <!-- 1. Capa / Identificação -->
+      <div class="section">
+        <h2>1. Identificação do Documento</h2>
+        <div class="card grid-2">
+          <div>
+            <p><strong>Cliente:</strong> Aconchego dos Avós (Karol)</p>
+            <p><strong>Responsável Técnico:</strong> Ricardo / A2 Data</p>
+          </div>
+          <div>
+            <p><strong>Período Avaliado:</strong> 08/06/2026 e 09/06/2026</p>
+            <p><strong>Data de Emissão:</strong> 09/06/2026</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Objetivo da Homologação -->
+      <div class="section">
+        <h2>2. Objetivo da Homologação</h2>
+        <p style="color: var(--text-muted);">
+          Validar o uso real do sistema A2 DataPoint em ambiente operacional, acompanhando uma jornada completa de uma colaboradora real da instituição. O foco é identificar comportamentos práticos e realizar os ajustes necessários de auditoria antes da expansão da implantação.
+        </p>
+      </div>
+
+      <!-- 3. Alinhamento Presencial -->
+      <div class="section">
+        <h2>3. Alinhamento Presencial — 08/06/2026</h2>
+        <ul>
+          <li>Cadastro oficial da colaboradora no sistema.</li>
+          <li>Atribuição da escala de trabalho parametrizada.</li>
+          <li>Orientações iniciais de uso do tablet e reconhecimento facial.</li>
+          <li>Preparação do ambiente para o acompanhamento da jornada no dia seguinte.</li>
+        </ul>
+      </div>
+
+      <!-- 4. Acompanhamento Real -->
+      <div class="section">
+        <h2>4. Acompanhamento Real — 09/06/2026</h2>
+        <div class="card">
+          <h3>Dados da Colaboradora</h3>
+          <div class="grid-2">
+            <div>
+              <p><strong>Nome:</strong> Thaiza Vieira Araujo</p>
+              <p><strong>Matrícula:</strong> 03</p>
+              <p><strong>Cargo/Função:</strong> Téc. Enfermagem</p>
+            </div>
+            <div>
+              <p><strong>Escala Atribuída:</strong> 5x2 Thaiza Teste</p>
+              <p><strong>Horário Previsto:</strong> 08:00 às 17:00</p>
+              <p><strong>Pausa Prevista:</strong> 12:00 às 13:00 (60 minutos)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Registros Realizados</h3>
+          <ul>
+            <li><strong>Entrada:</strong> 07:59</li>
+            <li><strong>Saída para Almoço:</strong> 12:30</li>
+            <li><strong>Retorno Final do Almoço:</strong> 13:37</li>
+            <li><strong>Saída Final:</strong> 17:48</li>
+          </ul>
+          <p style="margin-top: 10px; color: var(--text-muted);">
+            <strong>Total de registros brutos:</strong> 10<br>
+            A jornada foi exibida corretamente no Histórico Real como <strong>1 jornada consolidada</strong>. As marcações de entrada e saída final contaram com evidência fotográfica e de geolocalização. O almoço ocorreu sem exigência de foto/GPS, em conformidade com as regras previamente validadas. Pausas fracionadas foram identificadas e o status da jornada foi concluído com sucesso.
+          </p>
+        </div>
+      </div>
+
+      <!-- 5. Ocorrências Encontradas -->
+      <div class="section">
+        <h2>5. Ocorrências Identificadas</h2>
+        <p style="margin-bottom: 15px; color: var(--text-muted);">Durante a operação real, duas situações atípicas (exceções à escala) foram registradas com sucesso pelo sistema:</p>
+        
+        <div class="card" style="border-left: 4px solid var(--warning);">
+          <h3><span class="badge badge-warning">Aviso</span> 1. Hora Extra Indevida (38 minutos)</h3>
+          <p style="color: var(--text-muted);">A colaboradora trabalhou além do horário previsto. Como não havia solicitação ou aprovação prévia no sistema antes da sua saída, o tempo excedente não foi creditado automaticamente no Banco de Horas, protegendo a instituição de passivos indesejados. O sistema classificou a ocorrência corretamente como "HE Indevida". (Observação: a colaboradora permaneceu na instituição e a gestão informou que esqueceu de solicitar a HE pelo sistema previamente).</p>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--warning);">
+          <h3><span class="badge badge-warning">Aviso</span> 2. Estouro de Pausa (5 minutos)</h3>
+          <p style="color: var(--text-muted);">A colaboradora realizou 65 minutos de pausa, excedendo os 60 minutos previstos em sua escala. O sistema capturou e isolou o tempo excedente.</p>
+        </div>
+      </div>
+
+      <!-- 6. Ajustes Implementados -->
+      <div class="section">
+        <h2>6. Ajustes Implementados Pós-Validação</h2>
+        <p style="color: var(--text-muted); margin-bottom: 15px;">Para tratar as ocorrências acima de forma gerencial, foi implementada e validada uma melhoria estrutural (Sinalizações Operacionais e Auditoria Admin). <strong>Ressalta-se que esta melhoria de auditoria e saúde de caixa não gera custos adicionais e faz parte do escopo de ajustes essenciais da homologação.</strong></p>
+        <ul>
+          <li>Criação da aba "Sinalizações" na Gestão Comportamental.</li>
+          <li>Exibição clara de HE Indevida pendente de análise.</li>
+          <li>Exibição de pausas excedidas.</li>
+          <li>Monitoramento de colaboradores em almoço em tempo real.</li>
+          <li>Ajuste no Extrato do Banco de Horas: HE Indevida passou a aparecer como <em>pendência visual</em>, sem somar automaticamente no saldo aprovado do colaborador.</li>
+        </ul>
+      </div>
+
+      <!-- 7. Resultado da Homologação -->
+      <div class="section">
+        <h2>7. Status das Validações</h2>
+        <div class="grid-2">
+          <ul>
+            <li><strong>Cadastro e escala:</strong> <span class="badge badge-success">Validado</span></li>
+            <li><strong>Registro de entrada:</strong> <span class="badge badge-success">Validado</span></li>
+            <li><strong>Almoço e fracionamento:</strong> <span class="badge badge-success">Validado</span></li>
+            <li><strong>Retorno de almoço:</strong> <span class="badge badge-success">Validado</span></li>
+          </ul>
+          <ul>
+            <li><strong>Saída final:</strong> <span class="badge badge-success">Validado</span></li>
+            <li><strong>Histórico Real:</strong> <span class="badge badge-success">Validado</span></li>
+            <li><strong>Sinalizações:</strong> <span class="badge badge-success">Validado</span></li>
+            <li><strong>Extrato com HE pendente:</strong> <span class="badge badge-success">Validado</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 8. Orientação para a Cliente -->
+      <div class="section">
+        <h2>8. Orientação de Gestão (Karol)</h2>
+        <div class="highlight-box">
+          <p style="color: var(--text-muted);">
+            Sempre que houver uma <strong>Hora Extra Indevida</strong> (não programada previamente), ela não entrará no saldo do funcionário automaticamente. A gestão deverá acessar o menu <strong>Gestão Comportamental > Sinalizações</strong> e decidir como resolver a pendência:<br><br>
+            1. <strong>Regularizar/Aprovar:</strong> Caso o gestor tenha autorizado verbalmente e deseje creditar o tempo ao banco de horas.<br>
+            2. <strong>Resolver Parcialmente:</strong> Aprovar apenas parte dos minutos.<br>
+            3. <strong>Manter como Indevida:</strong> Não creditar horas e registrar ciência, orientação ou advertência.
+          </p>
+        </div>
+      </div>
+
+      <!-- 9. Próximos Passos -->
+      <div class="section">
+        <h2>9. Próximos Passos</h2>
+        <ul>
+          <li>A gestão (Karol) deve analisar a HE Indevida da matrícula 03 no sistema e decidir se a mesma foi autorizada ou se será mantida como indevida.</li>
+          <li>Continuar o acompanhamento do uso real nos próximos dias.</li>
+          <li>Registrar novas observações e sanar dúvidas diárias de operação.</li>
+        </ul>
+      </div>
+
+      <!-- 10. Conclusão -->
+      <div class="section">
+        <h2>10. Conclusão</h2>
+        <p style="color: var(--text-muted);">
+          A homologação DEV em ambiente real foi altamente positiva. O sistema A2 DataPoint registrou as jornadas e exceções de forma precisa. Mais importante ainda, o sistema cumpriu seu papel de governança ao barrar o cômputo automático de horas não autorizadas, gerando pendências claras para a auditoria administrativa.
+        </p>
+      </div>
+
+      <!-- Assinaturas -->
+      <div class="signatures">
+        <div class="signature-block">
+          <div class="signature-line"></div>
+          <p class="signature-name">Ricardo</p>
+          <p class="signature-role">Responsável Técnico - A2 Data</p>
+        </div>
+        <div class="signature-block">
+          <div class="signature-line"></div>
+          <p class="signature-name">Karol</p>
+          <p class="signature-role">Gestão - Aconchego dos Avós</p>
+        </div>
+      </div>
+      
+      <p style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 14px;">
+        Documento gerado em 09/06/2026.
+      </p>
+
+    </div>
+  </div>
+
+</body>
+</html>

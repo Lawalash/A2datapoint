@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Termo de Melhoria e Atualização de Plano — A2 DataPoint</title>
+  <style>
+    :root {
+      --bg-color: #F8F9FA;
+      --card-bg: #FFFFFF;
+      --primary: #003D5C;
+      --secondary: #13A89E;
+      --text-main: #333333;
+      --text-muted: #666666;
+      --border-color: #E5E5E5;
+      --success: #28A745;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; padding: 40px 20px; }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 50px 60px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Print Header e Ações */
+    .actions-bar { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+    .btn-print {
+      background-color: var(--primary); color: #fff; border: none; padding: 10px 20px;
+      border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;
+    }
+    .btn-print:hover { background-color: #002B42; }
+
+    /* Cabeçalho */
+    header { text-align: center; border-bottom: 3px solid var(--primary); padding-bottom: 30px; margin-bottom: 30px; }
+    header h1 { color: var(--primary); font-size: 24px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    header h2 { color: var(--text-muted); font-size: 16px; font-weight: normal; margin-bottom: 15px; }
+    header h3 { color: var(--primary); font-size: 20px; margin-bottom: 20px; }
+    
+    .meta-info { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-muted); margin-top: 20px; }
+    
+    /* Seções */
+    section { margin-bottom: 30px; }
+    .section-title {
+      font-size: 16px; color: var(--primary); font-weight: bold; text-transform: uppercase;
+      border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 15px;
+    }
+    
+    p { margin-bottom: 12px; text-align: justify; font-size: 14px; }
+    
+    ul { list-style-type: none; padding-left: 0; margin-bottom: 15px; font-size: 14px; }
+    ul li { margin-bottom: 8px; position: relative; padding-left: 20px; }
+    ul.check-list li::before { content: '✓'; position: absolute; left: 0; color: var(--success); font-weight: bold; }
+    ul.cross-list li::before { content: '×'; position: absolute; left: 0; color: var(--text-muted); font-weight: bold; }
+
+    /* Caixas e Tabelas */
+    .highlight-box {
+      background-color: #F0F8FF; border-left: 4px solid var(--primary); padding: 15px; border-radius: 4px; margin: 20px 0; font-size: 14px;
+    }
+    .alert-box {
+      background-color: #FFF9E6; border-left: 4px solid #F0AD4E; padding: 15px; border-radius: 4px; margin: 20px 0; font-size: 14px;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; text-align: center; }
+    th, td { border: 1px solid var(--border-color); padding: 12px; }
+    th { background-color: #F8F9FA; color: var(--primary); text-transform: uppercase; font-size: 12px; }
+    td.old-val { color: var(--text-muted); text-decoration: line-through; }
+    td.new-val { color: var(--success); font-weight: bold; font-size: 16px; }
+
+    .price-cards { display: flex; gap: 15px; margin-bottom: 20px; }
+    .price-card { flex: 1; background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; text-align: center; }
+    .price-card span { display: block; font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
+    .price-card strong { font-size: 20px; color: var(--primary); }
+    .price-card.free { border-color: var(--success); background-color: #F0FFF4; }
+    .price-card.free strong { color: var(--success); }
+
+    /* Assinaturas */
+    .signatures {
+      margin-top: 60px;
+      page-break-inside: avoid;
+    }
+    .signature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+    }
+    .signature-box {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .signature-line {
+      border-top: 1px solid #000;
+      width: 100%;
+      margin: 0 auto 10px auto;
+      padding-top: 5px;
+    }
+    .signature-box strong { display: block; font-size: 14px; color: var(--primary); }
+    .signature-box span { display: block; font-size: 12px; color: var(--text-muted); }
+    
+    .witness { grid-column: span 2; text-align: center; margin-top: 20px; }
+    .witness .signature-line { width: 50%; }
+
+    /* Print CSS */
+    @media print {
+      body { background-color: #fff; padding: 0; margin: 0; font-size: 13px; }
+      .container { box-shadow: none; padding: 0; max-width: 100%; }
+      .actions-bar, .no-print { display: none !important; }
+      @page { size: A4 portrait; margin: 8mm; }
+      .highlight-box, .alert-box, .price-card { border: 1px solid var(--border-color); padding: 10px; margin: 10px 0; }
+      section { page-break-inside: avoid; margin-bottom: 20px; }
+      p { margin-bottom: 8px; }
+      ul { margin-bottom: 10px; }
+      ul li { margin-bottom: 4px; }
+      .signatures { page-break-inside: avoid; margin-top: 30px; }
+      .signature-grid { gap: 20px; }
+      .signature-box { margin-bottom: 15px; }
+      header { padding-bottom: 15px; margin-bottom: 15px; }
+      table { margin: 10px 0; }
+      th, td { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="actions-bar">
+      <button class="btn-print" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        Imprimir / Salvar PDF
+      </button>
+    </div>
+
+    <!-- 1. Cabeçalho -->
+    <header>
+      <h1>A2 DataPoint</h1>
+      <h2>A2 Data Inteligência</h2>
+      <h3>Termo de Melhoria e Atualização de Plano</h3>
+      
+      <div class="meta-info">
+        <span><strong>Cliente:</strong> Aconchego dos Avós</span>
+        <span><strong>Data de emissão:</strong> ____ / ____ / ________</span>
+      </div>
+    </header>
+
+    <!-- 2. Identificação das partes -->
+    <section>
+      <h4 class="section-title">1. Identificação das Partes</h4>
+      <p>
+        <strong>CONTRATANTE:</strong> Aconchego dos Avós, inscrita no CNPJ: 61.844.415/0001-36.
+      </p>
+      <p>
+        <strong>CONTRATADO:</strong> Ricardo Alexandre Brasil Júnior, inscrito no CPF: 704.908.144-25.
+      </p>
+    </section>
+
+    <!-- 3. Contexto -->
+    <section>
+      <h4 class="section-title">2. Contexto</h4>
+      <p>
+        O sistema A2 DataPoint já foi contratado para realizar o controle interno de ponto eletrônico, gestão de jornada, organização de escalas, banco de horas, recebimento de solicitações gerais e geração de relatórios mensais.
+      </p>
+      <p>
+        A CONTRATANTE solicitou a inclusão de uma nova funcionalidade para auxiliar na organização, acompanhamento e validação administrativa de atestados e declarações médicas apresentados pelos colaboradores, melhoria esta que passará a integrar o escopo principal do sistema.
+      </p>
+    </section>
+
+    <!-- 4. Descrição da melhoria -->
+    <section>
+      <h4 class="section-title">3. Descrição da Melhoria</h4>
+      <p><strong>Nome do Novo Recurso:</strong> Módulo de Atestados e Declarações Médicas.</p>
+      <p>Este módulo permitirá que o colaborador registre uma solicitação de justificativa médica pelo próprio painel do sistema, informando período, horário, motivo e observações. O sistema orientará o colaborador a encaminhar o documento (físico ou foto) para o e-mail da administração.</p>
+      <p>A administração, por sua vez, terá uma área exclusiva para visualizar essas solicitações, comparar o período com a escala de trabalho do funcionário e decidir pela aprovação ou reprovação. Uma vez aprovado, o sistema alertará o colaborador e fará com que essa justificativa conste automaticamente nos relatórios mensais de espelho de ponto.</p>
+    </section>
+
+    <!-- 5. O que está incluído -->
+    <section>
+      <h4 class="section-title">4. O que está incluído nesta etapa</h4>
+      <ul class="check-list">
+        <li>a) Opção de envio de "Atestados/Declarações" disponível no acesso do colaborador;</li>
+        <li>b) Formulário simples e direto de solicitação preenchido pelo colaborador;</li>
+        <li>c) Mensagem de orientação na tela para envio do documento médico por e-mail;</li>
+        <li>d) Área administrativa no painel para acompanhamento e gestão das solicitações;</li>
+        <li>e) Funcionalidade de análise, aprovação ou reprovação pela gestão;</li>
+        <li>f) Visualização do período de afastamento solicitado em comparação visual com a escala de trabalho;</li>
+        <li>g) Aviso proativo no painel do colaborador quando houver um atestado aprovado ativo naquele dia;</li>
+        <li>h) Indicação clara do atestado ou declaração no relatório de ponto, quando aplicável e aprovado.</li>
+      </ul>
+    </section>
+
+    <!-- 6. O que não está incluído -->
+    <section>
+      <h4 class="section-title">5. O que NÃO está incluído nesta etapa</h4>
+      <ul class="cross-list">
+        <li>a) Envio automático ou integração direta de e-mails disparados pelo próprio sistema;</li>
+        <li>b) Validação médica ou jurídica automática do conteúdo do atestado;</li>
+        <li>c) Conferência automática de bancos de dados médicos, CID ou número de CRM;</li>
+        <li>d) Integração com softwares externos de contabilidade ou folha de pagamento;</li>
+        <li>e) Assinatura eletrônica e legal no momento da submissão do atestado;</li>
+        <li>f) Leitura robótica/automática (inteligência artificial) da foto do documento;</li>
+        <li>g) Armazenamento da foto ou arquivo PDF do atestado dentro do banco de dados do sistema (salvo contratação futura específica);</li>
+        <li>h) Análise trabalhista ou decisão legal automática sobre abonos ou descontos.</li>
+      </ul>
+      <div class="alert-box">
+        <strong>Importante:</strong> A conferência final, aceitação administrativa, e o uso destas informações para fins de compliance e rotinas trabalhistas continuam sob total responsabilidade da CONTRATANTE, junto à sua contabilidade ou assessoria responsável.
+      </div>
+    </section>
+
+    <!-- 7. Atualização da mensalidade -->
+    <section>
+      <h4 class="section-title">6. Atualização de Mensalidade</h4>
+      <p>Como condição comercial especial para a CONTRATANTE, o CONTRATADO não cobrará taxa separada de implantação, pesquisa ou desenvolvimento isolado para a construção desta melhoria estrutural de alto impacto.</p>
+      
+      <div class="price-cards">
+        <div class="price-card free">
+          <span>Taxa de Implantação/Desenvolvimento</span>
+          <strong>R$ 0,00</strong>
+        </div>
+        <div class="price-card">
+          <span>Mensalidade Base Original</span>
+          <strong>R$ 120,00</strong>
+        </div>
+        <div class="price-card" style="border-color: var(--primary);">
+          <span>Nova Mensalidade Atualizada</span>
+          <strong style="color: var(--primary);">R$ 190,00</strong>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Condição do Plano</th>
+            <th>Valor Mensal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Acesso Básico ao Ponto (Sem Módulo de Atestados)</td>
+            <td class="old-val">R$ 120,00 / mês</td>
+          </tr>
+          <tr>
+            <td>Plano Completo Integrado (Com Módulo de Atestados)</td>
+            <td class="new-val">R$ 190,00 / mês</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box">
+        Em contrapartida à isenção da taxa de desenvolvimento, após a entrega e a devida validação operacional do Módulo de Atestados e Declarações Médicas, a mensalidade global de licenciamento e manutenção do A2 DataPoint será atualizada de R$ 120,00 para <strong>R$ 190,00 mensais</strong> (diferença de R$ 70,00 mensais).
+      </div>
+    </section>
+
+    <!-- 8. Vigência -->
+    <section>
+      <h4 class="section-title">7. Vigência da Atualização</h4>
+      <p>A atualização de valor (nova mensalidade) entra em vigor a partir do <strong>primeiro vencimento mensal após a entrega técnica e a validação</strong> do módulo de atestados em pleno funcionamento por parte da gestão da ILPI.</p>
+      <p>As demais condições do contrato original firmado entre as partes permanecem válidas e inalteradas, exceto pelo acréscimo funcional descrito neste termo e pela referida atualização da mensalidade contínua aqui definida.</p>
+    </section>
+
+    <!-- 9. Observação futura -->
+    <section>
+      <h4 class="section-title">8. Fases Futuras</h4>
+      <p>Melhorias sistêmicas futuras e expansões de escopo — como armazenamento e gestão nativa do arquivo do atestado dentro do banco do sistema, envio automático de e-mails parametrizados, assinaturas digitais integradas, relatórios analíticos avançados de absenteísmo ou integrações com APIs contábeis externas — poderão ser avaliadas e dimensionadas posteriormente, mediante novo alinhamento e orçamento entre as partes.</p>
+    </section>
+
+    <!-- 10. Aceite -->
+    <section>
+      <p style="text-align: center; margin-top: 40px; font-weight: 500;">
+        Por estarem de acordo com as condições acima, as partes assinam o presente termo em comum acordo.
+      </p>
+    </section>
+
+    <!-- 11. Assinaturas -->
+    <div class="signatures">
+      <div class="signature-grid">
+        <!-- CONTRATANTE -->
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <strong>Aconchego dos Avós</strong>
+          <span>CNPJ: 61.844.415/0001-36</span>
+          <span>Nome da responsável: __________________________</span>
+          <span style="margin-top: 5px;">Data: ____ / ____ / ________</span>
+        </div>
+
+        <!-- CONTRATADO -->
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <strong>Ricardo Alexandre Brasil Júnior</strong>
+          <span>CPF: 704.908.144-25</span>
+          <span>Consultor de Software - A2 Data</span>
+          <span style="margin-top: 5px;">Data: ____ / ____ / ________</span>
+        </div>
+      </div>
+
+      <!-- Testemunha (Opcional) -->
+      <div class="signature-box witness">
+        <div class="signature-line"></div>
+        <strong style="color: var(--text-muted); font-weight: normal; font-size: 12px;">Testemunha (Opcional)</strong>
+        <span>Nome: _____________________________________________</span>
+        <span>CPF: ______________________  Data: ____ / ____ / ________</span>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

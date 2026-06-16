@@ -1,121 +1,165 @@
-// src/types/index.ts
+export type UserRole = 'Master' | 'Administrador' | 'Enfermeira Chefe' | 'Enfermeiro' | 'ASG' | 'Colaborador';
 
-export type AppView = 'login' | 'first-access' | 'employee-dashboard' | 'admin'
-export type AdminView = 'dashboard' | 'users' | 'shifts' | 'monitoring' | 'overtime' | 'reports' | 'storage'
-
-export interface Profile {
-  id: string
-  matricula: number
-  name: string
-  cpf: string | null
-  role: 'admin' | 'employee'
-  is_first_access: boolean
-  created_at: string
-  updated_at: string
+export interface User {
+  id: string;
+  username: string;
+  password?: string;
+  displayName: string;
+  role: UserRole;
+  cargo?: string; // Add cargo
+  route: string;
+  workSchedule?: string; // e.g. "07:00-15:00", "19:00-07:00"
+  mfaStatus?: 'not_required' | 'needs_enrollment' | 'pending_challenge' | 'verified' | 'error';
 }
 
-export interface Shift {
-  id: number
-  user_id: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-  lunch_duration_minutes: number
-  created_at: string
-  updated_at: string
+export interface Patient {
+  id: string;
+  name: string;
+  age: number;
+  bedNumber: string;
+  chronicDiseases: string[];
+  dependencyGrade: 1 | 2 | 3;
 }
 
-export interface TimeLog {
-  id: string
-  user_id: string
-  timestamp: string
-  type: 'in' | 'out' | 'lunch_start' | 'lunch_end'
-  photo_url: string | null
-  flag: 'he_not_registered' | 'late' | 'early_exit' | 'logout_by_agent' | null
-  note: string | null
-  log_date: string
-  created_at: string
-  profile?: { name: string; matricula: number }
+export interface ClinicalRecord {
+  id: string;
+  dateTime: string;
+  patientId: string;
+  patientName: string;
+  nurseName: string;
+  pa: string;
+  hgt: number;
+  fc: number;
+  fr: number;
+  spo2: number;
+  temp: number;
+  symptoms: string[];
+  pain: string;
+  risk: string;
+  generalState: string;
+  feeding: string;
+  hygiene: string[];
+  eliminations: string[];
+  skinDressing: string;
+  observations: string;
 }
 
 export interface OvertimeRequest {
-  id: string
-  user_id: string
-  date: string
-  duration_minutes: number
-  status: 'pending' | 'approved' | 'rejected'
-  note: string | null
-  requested_at: string
-  reviewed_at: string | null
-  reviewed_by: string | null
-  created_at: string
-  profile?: { name: string; matricula: number }
+  id: string;
+  employee: string;
+  type: 'Compensação' | 'Hora Extra';
+  justification: string;
+  hours: number;
+  status: 'Pendente' | 'Aprovada' | 'Reprovada' | 'Indevida';
 }
 
-export interface AuthResult {
-  success: boolean
-  error?: string
-  user?: Profile
-  isFirstAccess?: boolean
+export interface AttendanceRecord {
+  id: string;
+  employee: string;
+  entry: string | null;
+  exit: string | null;
+  breakTime: string;
+  total: string;
+  status: 'Normal' | 'Atraso' | 'Falta';
 }
 
-export interface PunchResult {
-  success: boolean
-  message: string
-  flag?: TimeLog['flag']
-  log?: TimeLog
+export interface DischargeRecord {
+  id: string;
+  patientName: string;
+  reason: 'Óbito' | 'Transferência' | 'Alta' | 'Outros';
+  date: string;
 }
 
-export interface AppState {
-  currentUser: Profile | null
-  currentView: AppView
-  adminView: AdminView
-  profiles: Profile[]
-  shifts: Shift[]
-  timeLogs: TimeLog[]
-  overtimeRequests: OvertimeRequest[]
-  isLoading: boolean
-  isAuthLoading: boolean
-  isLogsLoading: boolean // NEW: prevents race condition on page load
+export interface Toast {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
 
-  // Auth
-  login: (matricula: number, password: string, forceEmployeeView?: boolean) => Promise<AuthResult>
-  logout: () => Promise<void>
-  setFirstAccessComplete: (password: string) => Promise<boolean>
+// --- A2 DataPoint Types ---
 
-  // Navigation
-  navigateTo: (view: AppView) => void
-  navigateAdmin: (view: AdminView) => void
+export interface DataPointEmployee extends User {
+  matricula: string;
+  pin: string;
+  isActive: boolean;
+  bancoHorasMinutos: number; // Saldo em minutos
+  password_change_required?: boolean;
+}
 
-  // Time Registration
-  registerTime: (type: 'in' | 'out', photoDataUrl?: string) => Promise<PunchResult>
-  registerLunch: (type: 'lunch_start' | 'lunch_end') => Promise<PunchResult>
-  requestOvertime: (durationMinutes: number) => Promise<boolean>
-  registerLogoutByAgent: (userId: string) => Promise<boolean>
+export type PunchType = 'ENTRADA' | 'SAIDA_ALMOCO' | 'RETORNO_ALMOCO' | 'SAIDA' | 'ENTRADA_EXTRA' | 'SAIDA_EXTRA';
 
-  // Admin Actions
-  approveOvertime: (requestId: string) => Promise<boolean>
-  rejectOvertime: (requestId: string) => Promise<boolean>
-  createUser: (name: string, cpf?: string) => Promise<number | null>
-  deleteUser: (userId: string) => Promise<boolean>
-  resetUserPassword: (userId: string) => Promise<boolean>
-  bulkAssignShifts: (
-    userIds: string[],
-    days: number[],
-    startTime: string,
-    endTime: string,
-    lunchDurationMinutes?: number
-  ) => Promise<boolean>
+export interface AttendancePunch {
+  id: string;
+  type: PunchType;
+  time: string; // HH:mm format
+  geolocationMockStatus: 'APPROVED' | 'PENDING' | 'REJECTED';
+}
 
-  // Data Fetching
-  fetchProfiles: () => Promise<void>
-  fetchShifts: () => Promise<void>
-  fetchTimeLogs: (fromDate?: Date) => Promise<void>
-  fetchOvertimeRequests: () => Promise<void>
+export interface DataPointAttendanceRecord extends AttendanceRecord {
+  employeeId: string;
+  date: string; // YYYY-MM-DD
+  punches: AttendancePunch[];
+}
 
-  // Selectors
-  getTodayLogs: () => TimeLog[]
-  getUserTodayLastLog: () => TimeLog | null
-  getUserShiftToday: () => Shift | null
-  getPendingOvertimeCount: () => number
+export type RequestStatus = 'Pendente' | 'Aprovada' | 'Reprovada' | 'Indevida';
+
+export interface DataPointOvertimeRequest extends OvertimeRequest {
+  employeeId: string;
+  date: string;
+  adminJustification?: string;
+}
+
+export interface WorkSchedule {
+  id: string;
+  name: string;
+  workDays: string[]; // e.g. ['Seg', 'Ter', 'Qua']
+  entryTime: string;
+  exitTime: string;
+  breakDurationMinutes: number;
+}
+
+export interface InstitutionSettings {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  radiusMeters: number;
+  requirePhoto: boolean;
+  requireGeoloc: boolean;
+  
+  entry_buffer_before_minutes?: number;
+  entry_buffer_after_minutes?: number;
+  exit_buffer_before_minutes?: number;
+  exit_buffer_after_minutes?: number;
+  lunch_start_buffer_before_minutes?: number;
+  lunch_start_buffer_after_minutes?: number;
+  lunch_return_buffer_before_minutes?: number;
+  lunch_return_buffer_after_minutes?: number;
+}
+
+export interface HourBankBalance {
+  employeeId: string;
+  balanceMinutes: number;
+}
+
+export type AlertType = 'unauthorized_overtime' | 'break_exceeded' | 'open_lunch' | 'manual_note';
+export type AlertStatus = 'open' | 'resolved' | 'partially_resolved' | 'dismissed';
+export type ResolutionAction = 'approved' | 'partially_approved' | 'dismissed' | 'warned' | 'acknowledged';
+
+export interface AttendanceAlert {
+  id: string;
+  organization_id: string;
+  employee_id: string;
+  summary_id?: string;
+  alert_type: AlertType;
+  alert_date: string;
+  detected_minutes: number;
+  status: AlertStatus;
+  resolution_action?: ResolutionAction;
+  regularized_minutes?: number;
+  admin_notes?: string;
+  resolved_by?: string;
+  resolved_at?: string;
+  created_at: string;
+  updated_at: string;
 }

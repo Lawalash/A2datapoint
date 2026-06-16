@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de Evolução — A2 DataPoint</title>
+  <style>
+    :root {
+      --primary-dark: #1B325F;
+      --primary-light: #13A89E;
+      --bg-light: #F8F9FA;
+      --text-main: #333333;
+      --text-muted: #666666;
+      --border-color: #E5E5E5;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text-main);
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      padding: 50px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 25px;
+      margin-bottom: 35px;
+      text-align: left;
+    }
+
+    h1 {
+      color: var(--primary-dark);
+      font-size: 26px;
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 16px;
+      font-weight: 400;
+      margin: 0 0 20px 0;
+    }
+
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+
+    .meta-table td {
+      padding: 5px 0;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .meta-label {
+      font-weight: 600;
+      color: var(--primary-dark);
+      width: 100px;
+    }
+
+    .intro {
+      font-size: 15px;
+      color: var(--text-muted);
+      border-left: 3px solid var(--primary-light);
+      padding-left: 15px;
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      color: var(--primary-dark);
+      font-size: 18px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      margin-top: 40px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background-color: #ffffff;
+      border: 1px solid var(--border-color);
+      border-left: 3px solid var(--primary-dark);
+      padding: 20px;
+      margin-bottom: 15px;
+    }
+
+    .card h4 {
+      color: var(--primary-dark);
+      margin: 0 0 12px 0;
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text-main);
+    }
+
+    li {
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge.done {
+      background-color: var(--bg-light);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+    }
+
+    .badge.todo {
+      background-color: rgba(19, 168, 158, 0.1);
+      color: var(--primary-light);
+      border: 1px solid rgba(19, 168, 158, 0.2);
+    }
+
+    .ordered-list {
+      counter-reset: custom-counter;
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .ordered-list > li {
+      counter-increment: custom-counter;
+      position: relative;
+      padding-left: 30px;
+      margin-bottom: 12px;
+    }
+
+    .ordered-list > li::before {
+      content: counter(custom-counter) ".";
+      position: absolute;
+      left: 0;
+      color: var(--primary-light);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .conclusion {
+      background-color: var(--bg-light);
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      margin-top: 40px;
+      font-size: 14px;
+    }
+
+    .conclusion strong {
+      color: var(--primary-dark);
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .section-text {
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    @media print {
+      body {
+        background-color: #ffffff;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .card, .conclusion {
+        break-inside: avoid;
+        border: 1px solid var(--border-color);
+      }
+      h2 {
+        break-after: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Relatório de Evolução — A2 DataPoint</h1>
+      <div class="subtitle">Controle de Ponto por Celular</div>
+      
+      <table class="meta-table">
+        <tr>
+          <td class="meta-label">Cliente:</td>
+          <td>Aconchego dos Avós</td>
+        </tr>
+        <tr>
+          <td class="meta-label">Data:</td>
+          <td>04/06/2026</td>
+        </tr>
+      </table>
+    </header>
+
+    <div class="intro">
+      Este relatório resume o estado de desenvolvimento do sistema A2 DataPoint, focado na organização e no controle do ponto dos colaboradores por celular. O documento detalha as rotinas de segurança, controle de localização e as configurações de horário já estabelecidas.
+    </div>
+
+    <h2>1. Objetivo do Relatório</h2>
+    <p class="section-text">Apresentar de forma objetiva como o sistema funcionava no início do projeto, quais melhorias foram desenvolvidas e configuradas na base de dados e quais serão os próximos passos para a conclusão do controle de ponto operacional.</p>
+
+    <h2>2. Cenário Anterior (Ponto de Partida)</h2>
+    <div class="card">
+      <ul>
+        <li>O projeto começou como parte de uma solução maior (A2 FORM).</li>
+        <li>A prioridade do cliente mudou para o controle de ponto.</li>
+        <li>O fluxo inicial de marcação era apenas simulado (não usava base de dados permanente).</li>
+        <li>O ponto ainda não contava com autenticação real do colaborador.</li>
+        <li>O colaborador não passava por validação real de localização.</li>
+        <li>Não existia uma regra configurada para impedir ponto fora da escala.</li>
+        <li>Não existia um fluxo administrativo para ativar ou resetar o acesso do funcionário.</li>
+      </ul>
+    </div>
+
+    <h2>3. Cenário Atual</h2>
+    <div class="card">
+      <ul>
+        <li>O sistema está focado no controle de ponto por celular.</li>
+        <li>O colaborador acessa sua conta usando matrícula e senha.</li>
+        <li>O administrador gerencia os funcionários, as escalas e as configurações gerais.</li>
+        <li>O acesso do colaborador pode ser ativado e resetado pelo administrador.</li>
+        <li>O colaborador só consegue registrar o ponto se cumprir as regras da escala de horário.</li>
+        <li>O registro de entrada e a saída final verificam a localização do colaborador.</li>
+        <li>O sistema permite saídas e retornos de almoço mais ágeis, sem exigir verificação de localização.</li>
+        <li>Os registros de ponto ficam salvos no banco de dados da instituição.</li>
+      </ul>
+    </div>
+
+    <h2>4. Principais Entregas Realizadas</h2>
+    
+    <div class="card">
+      <h4>4.1. Isolamento do A2 DataPoint <span class="badge done">Concluído</span></h4>
+      <ul>
+        <li>O sistema foi separado visualmente do escopo clínico. O foco da tela inicial para o funcionário passou a ser apenas o registro de ponto.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h4>4.2. Gestão de Funcionários <span class="badge done">Concluído</span></h4>
+      <ul>
+        <li>Cadastro e listagem de colaboradores.</li>
+        <li>O sistema gera matrículas sequenciais de forma automática.</li>
+        <li>O administrador consegue ativar, inativar e reativar funcionários no sistema.</li>
+        <li>Foi evitada a exclusão definitiva pelo painel para manter o histórico; matrículas antigas não são reutilizadas.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h4>4.3. Gestão de Escalas <span class="badge done">Concluído</span></h4>
+      <ul>
+        <li>O administrador cadastra os horários de entrada, almoço e saída.</li>
+        <li>O colaborador é vinculado a uma escala específica.</li>
+        <li>As escalas podem ser ativadas e inativadas.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h4>4.4. Acesso Seguro do Colaborador <span class="badge done">Concluído</span></h4>
+      <ul>
+        <li>O login é feito exclusivamente com a matrícula numérica e a senha.</li>
+        <li>O administrador ativa o acesso inicial e pode resetar a senha em caso de perda.</li>
+        <li>O sistema obriga a criação de uma nova senha pessoal no primeiro acesso após um reset.</li>
+        <li>Colaboradores inativados perdem o acesso à plataforma.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h4>4.5. Controle por Localização <span class="badge done">Concluído</span></h4>
+      <ul>
+        <li>A entrada e a saída final validam se o celular do colaborador está dentro do perímetro configurado da instituição.</li>
+        <li>Se o colaborador recusar permissão de GPS, o sistema bloqueia o ponto.</li>
+        <li>Se o colaborador estiver fora do raio permitido, o ponto é bloqueado.</li>
+        <li>Distâncias longas são exibidas em quilômetros para facilitar a compreensão.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h4>4.6. Registro de Ponto <span class="badge done">Concluído</span></h4>
+      <ul>
+        <li>Entrada, saída para o almoço, retorno do almoço e saída final são registrados no sistema.</li>
+        <li>As informações permanecem na tela do celular mesmo se a página for atualizada.</li>
+        <li>O sistema evita que um ponto seja registrado duas vezes no mesmo momento.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h4>4.7. Regras e Tolerância de Horário <span class="badge done">Concluído</span></h4>
+      <ul>
+        <li>O ponto só pode ser registrado de acordo com a escala atribuída.</li>
+        <li>O administrador configura minutos de tolerância (janelas permitidas) para bater o ponto.</li>
+        <li>Fora do horário tolerado, o sistema bloqueia o registro.</li>
+        <li>O sistema bloqueia registros em dias de folga do colaborador.</li>
+      </ul>
+    </div>
+
+    <h2>5. Resumo das Regras de Negócio Ativas</h2>
+    <ul class="ordered-list">
+      <li>O colaborador não usa e-mail para acesso, apenas matrícula.</li>
+      <li>Funcionário inativo pelo RH não acessa o sistema.</li>
+      <li>As matrículas antigas ficam preservadas e não podem ser designadas a novos funcionários.</li>
+      <li>As marcações de Entrada e Saída Final exigem localização.</li>
+      <li>As marcações de intervalo (Almoço) não exigem localização, garantindo praticidade.</li>
+      <li>O registro só é liberado nos dias configurados e dentro do horário permitido pelo administrador.</li>
+      <li>A fotografia (em fase futura) será apenas uma evidência visual para auditoria, sem automações de reconhecimento facial.</li>
+    </ul>
+
+    <h2>6. Funcionalidades em Espera</h2>
+    <p class="section-text">As funcionalidades a seguir serão configuradas e habilitadas em fases futuras:</p>
+    <ul>
+      <li>Captura real de fotografia no registro.</li>
+      <li>Armazenamento e visualização das fotos.</li>
+      <li>Contabilização matemática do banco de horas real.</li>
+      <li>Formulários de solicitação de compensação e hora extra.</li>
+      <li>Aprimoramento do painel administrativo para análise do histórico de pontos e relatórios finais.</li>
+    </ul>
+
+    <h2>7. Próximos Passos</h2>
+    <div class="card">
+      <ul class="ordered-list">
+        <li>Ativar a captura de fotos (evidência visual) para a Entrada e Saída Final. <span class="badge todo">Próxima Etapa</span></li>
+        <li>Ativar o upload das fotos na base de dados.</li>
+        <li>Disponibilizar os registros de ponto da equipe no painel do administrador.</li>
+        <li>Ativar as rotinas de cálculo do banco de horas.</li>
+        <li>Configurar o envio de solicitações de horário da equipe para os gestores.</li>
+        <li>Executar testes práticos diretamente com líderes usando aparelhos celulares variados.</li>
+        <li>Apresentar a funcionalidade completa para homologação do cliente.</li>
+      </ul>
+    </div>
+
+    <div class="conclusion">
+      <strong>Conclusão Operacional</strong>
+      O sistema passou da etapa de modelo visual para um ambiente seguro, validando identidade, escalas de horário e controle de localização. A estrutura básica de ponto eletrônico já se encontra operante. O próximo passo será implementar o registro fotográfico e finalizar o painel de leitura para uso do setor de recursos humanos.
+    </div>
+  </div>
+</body>
+</html>

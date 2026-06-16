@@ -1,101 +1,97 @@
-// src/App.tsx
-import { useStore } from '@/hooks/useStore'
-import { AdminLayout } from '@/components/layouts/AdminLayout'
-import { AdminDashboard } from '@/sections/admin/AdminDashboard'
-import { UserManagement } from '@/sections/admin/UserManagement'
-import { ShiftManagement } from '@/sections/admin/ShiftManagement'
-import { Monitoring } from '@/sections/admin/Monitoring'
-import { OvertimeApproval } from '@/sections/admin/OvertimeApproval'
-import { Reports } from '@/sections/admin/Reports'
-import { Storage } from '@/sections/admin/Storage'
-import { EmployeeLogin } from '@/sections/employee/Login'
-import { FirstAccess } from '@/sections/employee/FirstAccess'
-import { EmployeeDashboard } from '@/sections/employee/Dashboard'
-import { Toaster } from '@/components/ui/sonner'
-import { Fingerprint } from 'lucide-react'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/context/AuthContext';
+import { ToastProvider } from '@/context/ToastContext';
+import { DataPointMockProvider } from '@/context/DataPointMockContext';
+import LoginPage from '@/pages/LoginPage';
+import TabletPonto from '@/pages/TabletPonto';
+import PontoAcesso from '@/pages/PontoAcesso';
+import AdminDashboard from '@/pages/AdminDashboard';
+import AdminClinico from '@/pages/AdminClinico';
+import AdminComportamental from '@/pages/AdminComportamental';
+import AdminPacientes from '@/pages/AdminPacientes';
+import AdminFuncionarios from '@/pages/AdminFuncionarios';
+import AdminEscalas from '@/pages/AdminEscalas';
+import AdminConfiguracoes from '@/pages/AdminConfiguracoes';
+import AdminRelatorios from '@/pages/AdminRelatorios';
+import AdminMfaSetup from '@/pages/AdminMfaSetup';
+import HeadNurseDashboard from '@/pages/HeadNurseDashboard';
+import HeadNursePacientes from '@/pages/HeadNursePacientes';
+import HeadNurseRegistros from '@/pages/HeadNurseRegistros';
+import HeadNurseAlertas from '@/pages/HeadNurseAlertas';
+import HeadNurseRelatorios from '@/pages/HeadNurseRelatorios';
+import NurseDashboard from '@/pages/NurseDashboard';
+import NursePacientes from '@/pages/NursePacientes';
+import MeuPonto from '@/pages/MeuPonto';
+import { PRODUCT_MODE } from '@/config/productConfig';
 
-// ── Componente de carregamento ──────────────────────────────────
-function LoadingScreen() {
+// Helper component for conditional routes
+const ConditionalRoute: React.FC<{
+  element: React.ReactNode;
+  allowedModes: ('A2_DATAPOINT' | 'A2_FORM_FULL')[];
+  fallbackPath: string;
+}> = ({ element, allowedModes, fallbackPath }) => {
+  if (allowedModes.includes(PRODUCT_MODE)) {
+    return <>{element}</>;
+  }
+  return <Navigate to={fallbackPath} replace />;
+};
+
+const App: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f2d5c] to-[#1a4080] flex flex-col items-center justify-center">
-      <div className="text-center">
-        <div className="w-20 h-20 bg-[#00b4d8]/20 border-2 border-[#00b4d8]/30 rounded-3xl flex items-center justify-center mx-auto mb-6 animate-pulse">
-          <Fingerprint className="w-10 h-10 text-[#00b4d8]" />
-        </div>
-        <p className="text-white/60 text-sm tracking-widest uppercase">A2data</p>
-        <p className="text-[#00b4d8] font-black text-2xl tracking-[0.15em] uppercase">POINT</p>
-        <div className="flex justify-center gap-1.5 mt-6">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-2 h-2 bg-[#00b4d8]/40 rounded-full animate-bounce"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
+    <DataPointMockProvider>
+      <AuthProvider>
+        <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/ponto" element={<TabletPonto />} />
+            <Route path="/ponto-tablet" element={<Navigate to="/ponto" replace />} />
+            <Route path="/acesso-ponto/:token" element={<PontoAcesso />} />
 
-// ── Admin view router ───────────────────────────────────────────
-function AdminRouter() {
-  const adminView = useStore((s) => s.adminView)
+            {/* Admin */}
+            <Route path="/admin" element={
+              PRODUCT_MODE === 'A2_DATAPOINT' 
+                ? <Navigate to="/admin/comportamental" replace /> 
+                : <AdminDashboard />
+            } />
+            <Route path="/admin/mfa-setup" element={<AdminMfaSetup />} />
+            <Route path="/admin/clinico" element={<ConditionalRoute element={<AdminClinico />} allowedModes={['A2_FORM_FULL']} fallbackPath="/admin/comportamental" />} />
+            <Route path="/admin/comportamental" element={<AdminComportamental />} />
+            <Route path="/admin/pacientes" element={<ConditionalRoute element={<AdminPacientes />} allowedModes={['A2_FORM_FULL']} fallbackPath="/admin/comportamental" />} />
+            <Route path="/admin/funcionarios" element={<AdminFuncionarios />} />
+            <Route path="/admin/escalas" element={<AdminEscalas />} />
+            <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
+            <Route path="/admin/relatorios" element={<ConditionalRoute element={<AdminRelatorios />} allowedModes={['A2_FORM_FULL']} fallbackPath="/admin/comportamental" />} />
 
-  const view = {
-    dashboard: <AdminDashboard />,
-    users: <UserManagement />,
-    shifts: <ShiftManagement />,
-    monitoring: <Monitoring />,
-    overtime: <OvertimeApproval />,
-    reports: <Reports />,
-    storage: <Storage />,
-  }[adminView] ?? <AdminDashboard />
+            {/* Enfermeira Chefe */}
+            <Route path="/enfermeira-chefe" element={<ConditionalRoute element={<HeadNurseDashboard />} allowedModes={['A2_FORM_FULL']} fallbackPath="/login" />} />
+            <Route path="/enfermeira-chefe/pacientes" element={<ConditionalRoute element={<HeadNursePacientes />} allowedModes={['A2_FORM_FULL']} fallbackPath="/login" />} />
+            <Route path="/enfermeira-chefe/registros" element={<ConditionalRoute element={<HeadNurseRegistros />} allowedModes={['A2_FORM_FULL']} fallbackPath="/login" />} />
+            <Route path="/enfermeira-chefe/alertas" element={<ConditionalRoute element={<HeadNurseAlertas />} allowedModes={['A2_FORM_FULL']} fallbackPath="/login" />} />
+            <Route path="/enfermeira-chefe/relatorios" element={<ConditionalRoute element={<HeadNurseRelatorios />} allowedModes={['A2_FORM_FULL']} fallbackPath="/login" />} />
+            <Route path="/enfermeira-chefe/meu-ponto" element={<MeuPonto requiredRole="Enfermeira Chefe" pageTitle="Meu Ponto" />} />
 
-  return <AdminLayout>{view}</AdminLayout>
-}
+            {/* Enfermeiro */}
+            <Route path="/enfermeiro" element={<ConditionalRoute element={<NurseDashboard />} allowedModes={['A2_FORM_FULL']} fallbackPath="/login" />} />
+            <Route path="/enfermeiro/pacientes" element={<ConditionalRoute element={<NursePacientes />} allowedModes={['A2_FORM_FULL']} fallbackPath="/login" />} />
+            <Route path="/enfermeiro/meu-ponto" element={<MeuPonto requiredRole="Enfermeiro" pageTitle="Meu Ponto" />} />
 
-// ── App root ────────────────────────────────────────────────────
-function App() {
-  const { currentView, isAuthLoading } = useStore()
+            {/* Colaborador */}
+            <Route path="/meu-ponto" element={
+              PRODUCT_MODE === 'A2_DATAPOINT' 
+                ? <Navigate to="/ponto" replace />
+                : <MeuPonto requiredRole="Colaborador" pageTitle="Meu Ponto" />
+            } />
 
-  if (isAuthLoading) {
-    return <LoadingScreen />
-  }
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
+    </AuthProvider>
+    </DataPointMockProvider>
+  );
+};
 
-  // Employee views: mobile-first, full screen on small devices, capped on large
-  if (currentView === 'login' || currentView === 'first-access' || currentView === 'employee-dashboard') {
-    return (
-      <>
-        <div className="min-h-dvh sm:min-h-screen sm:bg-gray-900 sm:flex sm:items-center sm:justify-center">
-          <div
-            className="w-full bg-white sm:shadow-2xl overflow-hidden"
-            style={{
-              maxWidth: '430px',
-              minHeight: '100dvh',
-            }}
-          >
-            {currentView === 'login' && <EmployeeLogin />}
-            {currentView === 'first-access' && <FirstAccess />}
-            {currentView === 'employee-dashboard' && <EmployeeDashboard />}
-          </div>
-        </div>
-        <Toaster position="top-center" richColors />
-      </>
-    )
-  }
-
-  // Admin view: full layout
-  if (currentView === 'admin') {
-    return (
-      <>
-        <AdminRouter />
-        <Toaster position="top-right" richColors />
-      </>
-    )
-  }
-
-  return <LoadingScreen />
-}
-
-export default App
+export default App;

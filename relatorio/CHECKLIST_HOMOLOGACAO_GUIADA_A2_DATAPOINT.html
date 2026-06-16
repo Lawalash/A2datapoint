@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checklist de Homologação Guiada — A2 DataPoint</title>
+    <style>
+        :root {
+            --primary: #003D5C;
+            --secondary: #007BFF;
+            --background: #F4F7F6;
+            --surface: #FFFFFF;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #E0E0E0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: var(--surface);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        header {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 28px;
+            margin: 0 0 10px 0;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 16px;
+            margin: 0;
+        }
+
+        h2 {
+            color: var(--primary);
+            font-size: 22px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .intro-text {
+            background: rgba(0, 123, 255, 0.05);
+            border-left: 4px solid var(--primary);
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+
+        .meta-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .meta-info div {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        .meta-info strong {
+            color: var(--primary);
+            display: inline-block;
+            width: 250px;
+        }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 8px;
+        }
+
+        .form-row label {
+            flex: 0 0 350px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .form-row span.blank-line {
+            flex: 1;
+            display: inline-block;
+            border-bottom: 1px solid #999;
+            height: 20px;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+
+        .checklist-group {
+            margin-bottom: 20px;
+        }
+
+        .checklist-group h3 {
+            color: var(--primary);
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .check-box {
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--text-muted);
+            border-radius: 3px;
+            margin-right: 12px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        .textarea-box {
+            width: 100%;
+            height: 100px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 60px;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .btn-print {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .btn-print:hover {
+            background: #002D44;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        @media print {
+            body { background: white; font-size: 13px; }
+            .container { box-shadow: none; margin: 0; padding: 0; max-width: 100%; }
+            .btn-print { display: none; }
+            .card { break-inside: avoid; padding: 15px; margin-bottom: 15px; }
+            @page { size: A4 portrait; margin: 8mm; }
+            h2 { margin-top: 20px; margin-bottom: 10px; font-size: 18px; }
+            .form-row { margin-bottom: 10px; }
+            .intro-text { padding: 10px 15px; margin-bottom: 15px; }
+            .meta-info { padding: 15px; margin-bottom: 20px; gap: 10px; }
+            header { padding-bottom: 10px; margin-bottom: 15px; }
+            .checklist-group { margin-bottom: 10px; }
+            .signatures { margin-top: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="header-top">
+            <div>
+                <h1>Checklist de Homologação Guiada</h1>
+                <p class="subtitle">Informações para preparar o teste assistido com a Aconchego dos Avós</p>
+            </div>
+            <button class="btn-print" onclick="window.print()">Imprimir Checklist</button>
+        </div>
+    </header>
+
+    <div class="meta-info">
+        <div><strong>Sistema:</strong> A2 DataPoint</div>
+        <div><strong>Cliente:</strong> Aconchego dos Avós</div>
+        <div><strong>Responsável Técnico:</strong> A2 Data</div>
+        <div><strong>Responsável Cliente:</strong> Karol</div>
+        <div style="grid-column: span 2;"><strong>Data prevista da homologação:</strong> ___________________________________</div>
+    </div>
+
+    <div class="intro-text">
+        <strong>Orientação:</strong> Para realizarmos a homologação guiada do A2 DataPoint, precisamos escolher um <strong>colaborador piloto</strong> e uma escala (real ou simulada). Durante o teste, a A2 Data acompanhará o processo remotamente ou presencialmente para validar os registros de ponto, localização de GPS, evidências visuais (fotos), preenchimento do histórico e balanço do banco de horas.
+    </div>
+
+    <h2>1. Escolha do Colaborador Piloto</h2>
+    <div class="card">
+        <p style="font-size: 13px; color: #666; margin-bottom: 20px;"><em>Preferencialmente escolher um colaborador que esteja disponível no horário do teste, tenha celular com câmera funcionando e consiga ativar a permissão de localização no navegador.</em></p>
+        
+        <div class="form-row"><label>Nome completo do colaborador:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Cargo / Função:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Matrícula interna (se existir):</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>O celular é Android ou iPhone?</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Tem acesso a 3G/4G ou Wi-Fi no local?</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Autoriza participar do teste guiado?</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Estará presente na data/horário marcado?</label><span class="blank-line"></span></div>
+    </div>
+
+    <h2>2. Dados do Ambiente e Dispositivo</h2>
+    <div class="card">
+        <div class="form-row"><label>Local do teste (Endereço/Base):</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Raio de distância permitido (ex: 500m):</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Melhor horário para realizar o teste:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Pessoa responsável por acompanhar o piloto:</label><span class="blank-line"></span></div>
+        
+        <h3 style="margin-top: 25px; color: var(--primary);">Requisitos do Celular (Check rápido)</h3>
+        <ul style="font-size: 14px; color: var(--text-muted);">
+            <li>Câmera frontal funcionando (lente limpa).</li>
+            <li>Navegador Google Chrome ou Safari atualizados.</li>
+            <li>Permissões de Câmera e Localização ativadas no navegador.</li>
+            <li>Bateria suficiente para não desligar no meio do teste.</li>
+        </ul>
+    </div>
+
+    <h2>3. Definição da Escala para Homologação</h2>
+    <div class="card">
+        <p style="font-size: 13px; color: #666; margin-bottom: 20px;"><em>Se a escala real do piloto for muito longa, a A2 Data pode criar uma "escala reduzida/simulada" (ex: turno de 15 minutos) apenas para conseguirmos bater entrada e saída no mesmo momento sem corromper o banco de horas real dele.</em></p>
+        
+        <div class="form-row"><label>Nome da Escala:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Dias de trabalho (ex: Seg a Sex):</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Horário de Entrada previsto:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Horário de Saída previsto:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Existe pausa de intervalo/almoço?</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Horário de saída para almoço:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Horário de retorno do almoço:</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Tolerância de Entrada (antes e depois):</label><span class="blank-line"></span></div>
+        <div class="form-row"><label>Tolerância de Saída (antes e depois):</label><span class="blank-line"></span></div>
+    </div>
+
+    <h2>4. Roteiro de Cenários a Testar (Dia H)</h2>
+    <div class="card">
+        
+        <div class="checklist-group">
+            <h3>Acesso e Segurança</h3>
+            <div class="check-item"><div class="check-box"></div><span>Login da Karol / Administrador Geral.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>MFA / Autenticação em duas etapas do administrador.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Cadastro e liberação de acesso do Colaborador piloto.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Troca de senha temporária pelo colaborador.</span></div>
+        </div>
+
+        <div class="checklist-group">
+            <h3>Ponto Eletrônico (Colaborador)</h3>
+            <div class="check-item"><div class="check-box"></div><span>Registro de ENTRADA capturando Localização e Foto.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Validação se o colaborador está dentro do raio permitido.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Registro de SAÍDA PARA ALMOÇO (se existir).</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Registro de RETORNO DE ALMOÇO.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Registro de SAÍDA FINAL capturando Localização e Foto.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Visualização do Histórico e Horários na tela do próprio celular.</span></div>
+        </div>
+
+        <div class="checklist-group">
+            <h3>Solicitações (Opcional no Piloto)</h3>
+            <div class="check-item"><div class="check-box"></div><span>Colaborador abrir Solicitação de Compensação / Hora Extra.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Administrador Autorizar/Reprovar solicitação.</span></div>
+        </div>
+
+        <div class="checklist-group">
+            <h3>Administração e Extratos (Karol)</h3>
+            <div class="check-item"><div class="check-box"></div><span>Visualizar o Histórico Real do colaborador testado.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Verificar modal "Ver Escala" confirmando as batidas.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Visualizar a Evidência Visual (Foto) capturada no momento da batida.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Conferir fechamento do Banco de Horas (Extrato final gerado).</span></div>
+        </div>
+
+    </div>
+
+    <h2>5. Critérios de Aceite para Liberação Inicial</h2>
+    <div class="card">
+        <div class="check-item"><div class="check-box"></div><span>Karol conseguiu acessar perfeitamente o painel administrativo.</span></div>
+        <div class="check-item"><div class="check-box"></div><span>Colaborador piloto conseguiu acessar o Ponto e trocar a senha.</span></div>
+        <div class="check-item"><div class="check-box"></div><span>Entrada e Saída foram cadastradas com sucesso e as fotos processadas.</span></div>
+        <div class="check-item"><div class="check-box"></div><span>O cálculo financeiro de Banco de Horas fechou com a jornada realizada.</span></div>
+        <div class="check-item"><div class="check-box"></div><span>Nenhum bloqueio crítico de rede, dispositivo ou sistema impediu o andamento padrão.</span></div>
+    </div>
+
+    <h2>6. Observações e Avaliação Final</h2>
+    <div class="card">
+        <label style="font-weight: bold;">Anotações do Cliente (Ajustes solicitados ou feedbacks do piloto):</label>
+        <div class="textarea-box"></div>
+        <div class="textarea-box"></div>
+
+        <div style="margin-top: 30px;">
+            <label style="font-weight: bold; margin-bottom: 10px; display: block;">Decisão Final Pós-Homologação:</label>
+            <div class="check-item"><div class="check-box"></div><span>Aprovado para uso inicial na clínica.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Aprovado com ressalvas/ajustes estéticos pendentes.</span></div>
+            <div class="check-item"><div class="check-box"></div><span>Requer nova rodada de teste guiado devido a impeditivo no local.</span></div>
+        </div>
+    </div>
+
+    <div class="signatures">
+        <div class="signature-line">
+            Karol<br>
+            <span style="font-weight: normal; font-size: 14px; color: #666;">Aconchego dos Avós</span>
+        </div>
+        <div class="signature-line">
+            A2 Data<br>
+            <span style="font-weight: normal; font-size: 14px; color: #666;">Responsável Técnico</span>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: 20px; font-weight: bold; color: #333;">
+        Data: ___ / ___ / 2026
+    </div>
+
+</div>
+
+</body>
+</html>

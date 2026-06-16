@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Pré-Homologação — A2 DataPoint</title>
+    <style>
+        :root {
+            --primary: #003D5C;
+            --secondary: #007BFF;
+            --background: #F4F7F6;
+            --surface: #FFFFFF;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #E0E0E0;
+            --success: #28A745;
+            --warning: #FFC107;
+            --danger: #DC3545;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: var(--surface);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        header {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 28px;
+            margin: 0 0 10px 0;
+        }
+
+        h2 {
+            color: var(--primary);
+            font-size: 22px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: var(--text-main);
+            font-size: 18px;
+            margin-top: 30px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .meta-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .meta-info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .meta-info strong {
+            color: var(--primary);
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(40, 167, 69, 0.2);
+        }
+
+        .status-badge.pending {
+            background: rgba(255, 193, 7, 0.1);
+            color: #d39e00;
+            border-color: rgba(255, 193, 7, 0.2);
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .highlight-box {
+            background: rgba(0, 123, 255, 0.05);
+            border: 1px solid rgba(0, 123, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+
+        .final-status {
+            text-align: center;
+            background: var(--primary);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-top: 40px;
+        }
+
+        .final-status h3 {
+            color: white;
+            margin-top: 0;
+        }
+
+        .btn-print {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .btn-print:hover {
+            background: #002D44;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+            }
+            .btn-print {
+                display: none;
+            }
+            .final-status {
+                border: 2px solid var(--primary);
+                color: var(--primary);
+                background: white;
+            }
+            .final-status h3 {
+                color: var(--primary);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="header-top">
+            <div>
+                <h1>Relatório de Pré-Homologação</h1>
+                <p class="subtitle">Sistema de Controle de Ponto Eletrônico por Celular</p>
+            </div>
+            <button class="btn-print" onclick="window.print()">Imprimir PDF</button>
+        </div>
+    </header>
+
+    <div class="meta-info">
+        <p><strong>Nome do sistema:</strong> A2 DataPoint</p>
+        <p><strong>Cliente:</strong> Aconchego dos Avós</p>
+        <p><strong>Responsável Técnico:</strong> A2 Data</p>
+        <p><strong>Destinatária:</strong> Karol / Administração</p>
+        <p><strong>Data:</strong> Junho/2026</p>
+        <p><strong>Status:</strong> <span class="status-badge">Pronto para Homologação Guiada</span></p>
+    </div>
+
+    <h2>1. Resumo Executivo</h2>
+    <p>A etapa de pré-homologação teve como objetivo validar internamente os principais fluxos operacionais do A2 DataPoint antes de iniciar os testes guiados com a equipe da Aconchego dos Avós. Foram revisados minuciosamente os fluxos de cadastro, acesso, ponto, escalas, banco de horas, evidências visuais, solicitações e regras avançadas de hora extra, garantindo a segurança operacional do sistema.</p>
+
+    <h2>2. O que foi validado internamente</h2>
+    <div class="grid-2">
+        <div class="card">
+            <h3>Acesso e Segurança</h3>
+            <ul>
+                <li>Login do administrador. <span class="status-badge">Validado</span></li>
+                <li>MFA / autenticação em duas etapas. <span class="status-badge">Validado</span></li>
+                <li>Login do colaborador por matrícula e senha. <span class="status-badge">Validado</span></li>
+                <li>Troca obrigatória de senha temporária. <span class="status-badge">Validado</span></li>
+                <li>Bloqueio de colaborador inativo. <span class="status-badge">Validado</span></li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Jornada e Escala</h3>
+            <ul>
+                <li>Cadastro e vínculo de escalas. <span class="status-badge">Validado</span></li>
+                <li>Registro de entrada com GPS e foto. <span class="status-badge">Validado</span></li>
+                <li>Registro de saída final com GPS e foto. <span class="status-badge">Validado</span></li>
+                <li>Saída e retorno de almoço (sem GPS/foto). <span class="status-badge">Validado</span></li>
+                <li>Almoço previsto e fracionado. <span class="status-badge">Validado</span></li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="grid-2">
+        <div class="card">
+            <h3>Administração e Gestão</h3>
+            <ul>
+                <li>Perfis Master, Administrador e Colaborador. <span class="status-badge">Validado</span></li>
+                <li>Proteção de hierarquia (Master). <span class="status-badge">Validado</span></li>
+                <li>Gestão Comportamental em abas. <span class="status-badge">Validado</span></li>
+                <li>Histórico Real de Pontos. <span class="status-badge">Validado</span></li>
+                <li>Modal "Ver Escala" e pausas realizadas. <span class="status-badge">Validado</span></li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Banco de Horas e Auditoria</h3>
+            <ul>
+                <li>Apuração automática de banco de horas. <span class="status-badge">Validado</span></li>
+                <li>Compensação aprovada gerando débito. <span class="status-badge">Validado</span></li>
+                <li>Folga aprovada sem gerar movimentação. <span class="status-badge">Validado</span></li>
+                <li>Evidência visual (foto) salva e auditável. <span class="status-badge">Validado</span></li>
+                <li>Hora extra avançada. <span class="status-badge">Validado</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>3. Destaques dos Refinamentos Realizados</h2>
+    
+    <div class="card">
+        <h3>A) Motor de ponto, escala e banco de horas</h3>
+        <ul>
+            <li>Correção da apuração de jornada esperada.</li>
+            <li>Entrada antes da escala tratada como entrada virtual para o banco de horas.</li>
+            <li>Almoço previsto e almoço fracionado perfeitamente contabilizados no saldo final.</li>
+            <li>Desvinculação de escala estruturada para não corromper históricos passados.</li>
+            <li>Histórico Real de Pontos e Modal de visualização diária refinados para clareza visual.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>B) Painel Administrativo e Experiência de Uso</h3>
+        <ul>
+            <li>Filtros avançados de funcionários (busca por nome, matrícula e cargo).</li>
+            <li>Perfis de acesso organizados e limitados: Master (A2 Data), Administrador (Karol) e Colaborador.</li>
+            <li>O Cargo/função do colaborador assumiu o protagonismo visual no aplicativo de ponto.</li>
+            <li>Área de Gestão Comportamental organizada de forma intuitiva em abas separadas.</li>
+            <li>Sistema de avatares individualizado e isolado por usuário no Sidebar.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>C) Hora Extra Avançada</h3>
+        <p>A regra trabalhista e financeira foi aplicada de maneira estrita:</p>
+        <ul>
+            <li><strong>Autorização:</strong> Autorizar hora extra no painel <em>não credita</em> o banco automaticamente. Funciona apenas como um teto de permissão.</li>
+            <li><strong>Apuração Real:</strong> O crédito financeiro no banco de horas só ocorre quando o ponto físico (GPS/Foto) comprova que o colaborador realmente trabalhou além do horário padrão.</li>
+            <li><strong>Classificações Claras:</strong>
+                <ul>
+                    <li><em>Realizada</em>: Fez o que estava autorizado.</li>
+                    <li><em>Parcial</em>: Fez menos do que estava autorizado.</li>
+                    <li><em>Indevida</em>: Fez hora extra sem nenhuma autorização prévia.</li>
+                    <li><em>Mista</em>: Fez a porção autorizada, mas excedeu o limite com horas indevidas.</li>
+                </ul>
+            </li>
+            <li><strong>Proteção:</strong> Horas extras indevidas aparecem destacadas de vermelho para o Administrador julgar, mas o sistema bloqueia o crédito automático destas no banco de horas, protegendo a instituição de fraudes operacionais.</li>
+        </ul>
+    </div>
+
+    <h2>4. Regras Operacionais Validadas</h2>
+    <div class="highlight-box">
+        <ul>
+            <li><strong>Geolocalização e Evidência:</strong> Entrada e Saída final exigem captura de GPS e Foto. Entradas e saídas de almoço/intervalo ocorrem apenas por botão, para agilidade.</li>
+            <li><strong>Evidências Visuais:</strong> As fotos são evidências de presença física, não sistemas intrusivos de reconhecimento facial. As fotos podem ser expurgadas da nuvem no futuro para economia de espaço, mantendo todo o registro contábil e de horário intacto (auditoria preservada).</li>
+            <li><strong>Banco de Horas:</strong> O banco de horas foi blindado. O saldo nunca se movimenta "por adivinhação" do sistema, dependendo sempre do cálculo apurado real e da ação administrativa.</li>
+        </ul>
+    </div>
+
+    <h2>5. Próxima Etapa: Homologação Guiada</h2>
+    <p>A próxima fase será uma <strong>Homologação Guiada e Assistida</strong>. Nesta etapa, a A2 Data acompanhará a Karol e um <strong>colaborador piloto</strong> (escolhido pela Aconchego dos Avós) na utilização do sistema em cenário real de instituição.</p>
+    
+    <h3>O que testaremos juntos:</h3>
+    <ul>
+        <li>Login da Karol (Administradora) e do Colaborador piloto.</li>
+        <li>Cadastro e simulação de uma escala real de trabalho.</li>
+        <li>Marcação de ponto (Entrada, Intervalos e Saída final) utilizando o celular do próprio colaborador.</li>
+        <li>Geração e leitura do Histórico Real no painel administrativo.</li>
+        <li>Reflexo imediato da jornada no extrato do Banco de Horas.</li>
+        <li>Abertura e processamento de solicitações de ponto (Hora extra, folga e compensações).</li>
+    </ul>
+
+    <h2>6. Preparação Solicitada (Call to Action)</h2>
+    <p>Para prepararmos um ambiente de teste perfeito e sem interrupções, solicitamos que a Karol preencha o documento em anexo: <strong>Checklist de Homologação Guiada</strong>.</p>
+    <p>Nesse documento, a administração poderá definir quem será o piloto, qual celular será utilizado e qual escala de horários simularemos, permitindo que a A2 Data pré-configure tudo para o dia do encontro.</p>
+
+    <div class="final-status">
+        <h3>Status Geral: PRONTO PARA HOMOLOGAÇÃO GUIADA</h3>
+        <p>A arquitetura, as lógicas financeiras e de fluxo estão sólidas. Após a validação prática assistida com o cliente, eventuais ajustes finos de layout, texto ou facilidade de uso poderão ser aplicados antes do lançamento definitivo para toda a clínica.</p>
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório Geral de Evolução — A2 DataPoint</title>
+  <style>
+    /* Reset e Variáveis */
+    :root {
+      --bg-color: #F4F7F6;
+      --card-bg: #FFFFFF;
+      --primary: #003D5C;
+      --secondary: #13A89E;
+      --text-main: #333333;
+      --text-muted: #666666;
+      --border-color: #E5E5E5;
+      --success: #28A745;
+      --warning: #F0AD4E;
+      --danger: #DC3545;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 60px 80px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Print Header e Ações */
+    .actions-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 20px;
+    }
+    .btn-print {
+      background-color: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color 0.2s;
+    }
+    .btn-print:hover { background-color: #002B42; }
+
+    /* Capa */
+    .cover {
+      text-align: center;
+      padding: 60px 0;
+      border-bottom: 4px solid var(--secondary);
+      margin-bottom: 40px;
+    }
+    .cover h1 {
+      color: var(--primary);
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+    .cover h2 {
+      color: var(--text-muted);
+      font-size: 20px;
+      font-weight: 400;
+      margin-bottom: 30px;
+    }
+    .cover-details {
+      display: inline-flex;
+      gap: 30px;
+      background: #F8F9FA;
+      padding: 15px 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .cover-details div { text-align: left; }
+    .cover-details strong { display: block; color: var(--primary); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .cover-details span { font-size: 16px; font-weight: 500; }
+
+    /* Seções */
+    section { margin-bottom: 50px; page-break-inside: avoid; }
+    .section-title {
+      color: var(--primary);
+      font-size: 24px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 24px;
+      background-color: var(--secondary);
+      border-radius: 3px;
+    }
+
+    /* Cards e Blocos */
+    .timeline {
+      border-left: 3px solid var(--border-color);
+      padding-left: 20px;
+      margin-left: 10px;
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 30px;
+      background: #F8FAFC;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -30px;
+      top: 24px;
+      width: 14px;
+      height: 14px;
+      background: var(--card-bg);
+      border: 3px solid var(--secondary);
+      border-radius: 50%;
+    }
+    .timeline-item h4 {
+      color: var(--primary);
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .timeline-item ul {
+      list-style-type: disc;
+      padding-left: 20px;
+      color: var(--text-muted);
+    }
+    .timeline-item ul li { margin-bottom: 6px; }
+
+    /* Tabelas */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 12px 15px;
+      text-align: left;
+    }
+    th {
+      background-color: #F8F9FA;
+      color: var(--primary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+    tr:nth-child(even) { background-color: #F8FAFC; }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-success { background-color: rgba(40, 167, 69, 0.15); color: var(--success); }
+    .badge-warning { background-color: rgba(240, 173, 78, 0.15); color: #d38b25; }
+    .badge-danger { background-color: rgba(220, 53, 69, 0.15); color: var(--danger); }
+    .badge-primary { background-color: rgba(0, 61, 92, 0.1); color: var(--primary); }
+
+    /* Listas Visuais */
+    .check-list { list-style: none; padding-left: 0; }
+    .check-list li { margin-bottom: 8px; position: relative; padding-left: 25px; }
+    .check-list li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: bold;
+    }
+
+    .risk-list { list-style: none; padding-left: 0; }
+    .risk-list li { margin-bottom: 8px; position: relative; padding-left: 25px; }
+    .risk-list li::before {
+      content: '⚠️';
+      position: absolute;
+      left: 0;
+      font-size: 12px;
+      top: 3px;
+    }
+
+    /* As Is / To Be */
+    .as-is-to-be {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .box {
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .box-asis { background-color: #FFF3F3; border-color: #FFD4D4; }
+    .box-tobe { background-color: #F0FFF4; border-color: #C6F6D5; }
+    .box h4 { margin-bottom: 10px; color: var(--text-main); }
+
+    /* Rodapé */
+    footer {
+      text-align: center;
+      padding-top: 30px;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Print CSS */
+    @media print {
+      body {
+        background-color: #fff;
+        padding: 0;
+        margin: 0;
+      }
+      .container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .actions-bar, .no-print { display: none !important; }
+      @page { margin: 1.5cm; }
+      section { page-break-inside: avoid; }
+      .timeline-item { page-break-inside: avoid; border: 1px solid #ddd; }
+      .cover { padding: 40px 0; border-bottom: 2px solid var(--secondary); margin-bottom: 30px; }
+      .as-is-to-be { gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="actions-bar">
+      <button class="btn-print" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        Imprimir / Salvar PDF
+      </button>
+    </div>
+
+    <!-- 1. Capa -->
+    <div class="cover">
+      <h1>Relatório Geral de Evolução — A2 DataPoint</h1>
+      <h2>Fases 0 a 5.9.10.6 — Pré-homologação, refinamentos críticos e relatórios de ponto</h2>
+      
+      <div class="cover-details">
+        <div>
+          <strong>Cliente</strong>
+          <span>Aconchego dos Avós</span>
+        </div>
+        <div>
+          <strong>Responsável</strong>
+          <span>A2 Data</span>
+        </div>
+        <div>
+          <strong>Status</strong>
+          <span style="color: var(--primary); font-weight: bold;">Pré-homologação avançada</span>
+        </div>
+        <div>
+          <strong>Data</strong>
+          <span>Junho/2026</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Resumo Executivo -->
+    <section>
+      <h3 class="section-title">Resumo Executivo</h3>
+      <p>Este relatório consolida toda a evolução técnica e negocial do projeto <strong>A2 DataPoint</strong>, o sistema de controle de ponto eletrônico desenvolvido para a ILPI Aconchego dos Avós. Iniciamos com a separação do produto base (A2 FORM), passamos pela implementação da arquitetura no Supabase com Auth e RLS, e agora atingimos a maturidade do motor de ponto, com cálculos trabalhistas, hora extra avançada, escalas complexas e relatórios completos.</p>
+      <p style="margin-top: 10px;">Atualmente o sistema encontra-se <strong>Pronto para validações assistidas com a cliente (Karol)</strong>, com todas as correções críticas de pré-homologação finalizadas com sucesso.</p>
+    </section>
+
+    <!-- 3. AS IS / TO BE -->
+    <section>
+      <h3 class="section-title">Contexto do Negócio (AS IS / TO BE)</h3>
+      <div class="as-is-to-be">
+        <div class="box box-asis">
+          <h4 style="color: var(--danger);">AS IS (Cenário Anterior)</h4>
+          <ul>
+            <li>Controle de ponto descentralizado ou frágil.</li>
+            <li>Incerteza na consolidação de escalas de ILPI (ex: 12x36).</li>
+            <li>Banco de horas sem gestão transparente de horas indevidas x autorizadas.</li>
+            <li>Dificuldade de cruzar informações visuais (fotos) com geolocalização.</li>
+          </ul>
+        </div>
+        <div class="box box-tobe">
+          <h4 style="color: var(--success);">TO BE (Cenário Atual A2 DataPoint)</h4>
+          <ul>
+            <li>Motor de ponto autônomo auditado pelo Supabase.</li>
+            <li>Cálculo nativo de jornadas normais, extras, noturnas e pausas fracionadas.</li>
+            <li>Aprovação gerencial estrita para hora extra virar saldo de banco de horas.</li>
+            <li>Relatórios espelho consolidados em 1 clique para assinatura.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Linha do tempo geral das fases -->
+    <section>
+      <h3 class="section-title">Evolução do Produto (Fases 0 a 5.9.10.6)</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <h4>Fase 0 — Preparação / base do produto</h4>
+          <ul>
+            <li>Organização inicial do A2 DataPoint e separação conceitual do A2 FORM Controller.</li>
+            <li>Direcionamento do produto para controle de ponto eletrônico por celular.</li>
+            <li>Definição de premissas de uso em ILPI.</li>
+            <li>Uso inicial de mock funcional.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 1 — Mock funcional avançado</h4>
+          <ul>
+            <li>Telas administrativas e colaborador usando dados simulados.</li>
+            <li>Validação visual e operacional dos fluxos de layout.</li>
+            <li>Base inicial de componentes e navegação (login, ponto, administração).</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 2 — Preparação Supabase</h4>
+          <ul>
+            <li>Modelagem inicial do banco de dados (tabelas reais).</li>
+            <li>Planejamento de autenticação e RLS (Row Level Security) como diretriz de segurança.</li>
+            <li>Separação progressiva entre mock e real.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 3 — Admin, Funcionários, Configurações e Escalas</h4>
+          <ul>
+            <li>Login admin integrado com Supabase Auth e sessão corrigida.</li>
+            <li>CRUD real de funcionários e matrículas sequenciais não reutilizáveis.</li>
+            <li>Configurações reais da organização e gestão de `work_schedules` e `employee_schedules`.</li>
+            <li>Inativação/reativação preservando o histórico.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 4 — Ponto real</h4>
+          <ul>
+            <li>Autenticação real do colaborador por matrícula e ativação de acesso via Edge Function.</li>
+            <li>Registro de ponto real no banco, protegido com Geolocalização (GeoFence) e Foto.</li>
+            <li>MFA do Admin validado com Microsoft Authenticator.</li>
+            <li>Limpeza de evidências visuais no Storage preservando os registros de texto.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5 — Banco de Horas, Solicitações e Pré-produção</h4>
+          <ul>
+            <li>Criação de `attendance_daily_summaries`, `hour_bank_transactions` e `employee_requests`.</li>
+            <li>Apuração diária de jornada (RPC de saldo) e Banco de horas real.</li>
+            <li>Fluxo completo de solicitações (Hora extra, compensação e folga) com aprovação Admin.</li>
+            <li>Extrato disponível tanto para Admin quanto Colaborador.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.5.x — Reset e validações internas</h4>
+          <ul>
+            <li>Reset da base preservando o Master (matrícula 01).</li>
+            <li>Cadastro do colaborador 02 (piloto) do zero, ativação de acesso, senha e escalas.</li>
+            <li>Validação da esteira: Login &gt; Escala &gt; Jornada Completa &gt; Solicitações.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.6 — Correções críticas do motor de ponto</h4>
+          <ul>
+            <li>Correção de desvinculação de escala e cálculo de `expected_minutes`.</li>
+            <li>Solução para almoço previsto, cronômetro acumulado em almoço fracionado e entrada virtual.</li>
+            <li>Histórico Real e Ledger coerentes sem duplicidade nas transações diárias.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.7 — Refinamento de Funcionários e Admin</h4>
+          <ul>
+            <li>Gestão Comportamental dividida em abas: KPIs, Solicitações, Extrato BH, Histórico Real e Relatórios.</li>
+            <li>Master protegido de inativação por Admin. Separação explícita entre Cargo (visual) e Role (sistema).</li>
+            <li>Sidebar retrátil, histórico compacto e visualizações limpas para o colaborador inativo.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.8 — Hora extra avançada e regra trabalhista</h4>
+          <ul>
+            <li><strong>Autorizar não é creditar:</strong> Hora extra só vira crédito no banco de horas se o ponto real comprovar trabalho.</li>
+            <li>Criação de métricas precisas: Autorizada, Realizada, Indevida.</li>
+            <li>Status mistos mapeados (HE parcial, HE não realizada) com proteção de ledger contra créditos falsos.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.10.3 — Escalas automáticas, 12x36 e Plantões Noturnos</h4>
+          <ul>
+            <li>Escalas 12x36, 5x2 e 6x1 automáticas. Calendário de folgas inteligente.</li>
+            <li>Plantão com virada de dia: Sistema reconhece entrada ontem e saída hoje.</li>
+            <li>Histórico Real consolida jornada (D &rarr; D+1) de forma elegante sem quebrar layout.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.10.4 — Jornada Extra Pós-Jornada Normal</h4>
+          <ul>
+            <li>Novos tipos no banco: `ENTRADA_EXTRA` e `SAIDA_EXTRA` exigindo GPS e Foto.</li>
+            <li>Botão de jornada extra só liberado se o Admin pré-autorizou e a jornada normal já terminou.</li>
+            <li>Isolamento do cronômetro para evitar que a pausa entre o fim do expediente e a HE seja computada.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.10.5 — Correção do Retorno de Almoço</h4>
+          <ul>
+            <li>Histórico Real passa a mostrar sempre a <em>primeira</em> saída de almoço e o <em>último</em> retorno.</li>
+            <li>Múltiplas pausas indicadas como `+N pausas`, sem poluíção visual.</li>
+          </ul>
+        </div>
+
+        <div class="timeline-item">
+          <h4>Fase 5.9.10.6 — Relatório / Espelho de Ponto por Colaborador</h4>
+          <ul>
+            <li>MVP de relatório HTML consolidado para impressão e PDF (`window.print()`).</li>
+            <li>Layout A4 Paisagem ultracompacto para abrigar a tabela mensal com todas as colunas de Ponto e HE.</li>
+            <li>Cards de resumo estatístico e Área de Assinatura física (Carimbo do Responsável e Funcionário).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Funcionalidades entregues por módulo -->
+    <section>
+      <h3 class="section-title">Funcionalidades Entregues por Módulo</h3>
+      <table>
+        <thead>
+          <tr>
+            <th width="30%">Módulo</th>
+            <th width="50%">Entregas Principais</th>
+            <th width="20%">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Autenticação e Segurança</td>
+            <td>Login Supabase, RLS ativado, MFA para Admin (Microsoft Auth).</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Funcionários</td>
+            <td>CRUD completo, matrículas imutáveis, bloqueio de inativos, reset de senha.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Escalas</td>
+            <td>Schedules manuais, automáticas (12x36, 5x2, 6x1), inativação, histórico.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Ponto do Colaborador</td>
+            <td>Painel interativo, restrição por escala, almoço fracionado, entrada virtual.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Geolocalização &amp; Evidência</td>
+            <td>GeoFence, captura obrigatória de foto na entrada e saída final, storage Supabase.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Histórico Real</td>
+            <td>Visualização gerencial, badges de plantão noturno e jornada extra.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Banco de Horas &amp; Solicitações</td>
+            <td>Apuração diária (RPC), pedidos de HE/Folga pelo app, aprovação gerencial, Extrato BH.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Hora Extra Avançada</td>
+            <td>Separação de HE Autorizada x Realizada x Indevida. Ledger protegido.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Gestão Comportamental</td>
+            <td>Dashboard do gestor com KPIs, filtros avançados, gestão centralizada.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+          <tr>
+            <td>Relatórios / PDF</td>
+            <td>Espelho mensal por colaborador, A4 paisagem, assinaturas, quebras de página corrigidas.</td>
+            <td><span class="badge badge-success">Validado</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 7. Regras de negócio consolidadas -->
+    <section>
+      <h3 class="section-title">Regras de Negócio Consolidadas</h3>
+      <div style="column-count: 2; column-gap: 40px;">
+        <ul class="check-list" style="break-inside: avoid;">
+          <li><strong>Preservação Master:</strong> O Master (matrícula 01) não pode ser editado/inativado por Admins comuns.</li>
+          <li><strong>Exclusão Lógica:</strong> Colaboradores não são excluídos fisicamente para evitar orfandade de dados; são inativados.</li>
+          <li><strong>Matrículas:</strong> Sequenciais e absolutas. Nunca reutilizadas.</li>
+          <li><strong>Hierarquia Visual:</strong> Cargo/Função é apenas visual. O que dá poder é a Role sistêmica (Colaborador, Admin, Master).</li>
+          <li><strong>Segurança do Ponto:</strong> Entrada e Saída finais exigem obrigatoriamente GPS e Foto frontal.</li>
+          <li><strong>Pausas:</strong> Almoços e intervalos curtos não exigem GPS/Foto para dar agilidade à rotina da ILPI.</li>
+          <li><strong>Privacidade:</strong> Fotos servem como evidência visual de auditoria, não há biometria invasiva nativa no browser.</li>
+          <li><strong>Limpeza de Storage:</strong> Evidências fotográficas antigas podem ser limpas sem apagar os registros textuais de banco de dados.</li>
+          <li><strong>HE Estrita:</strong> Aprovar HE não deposita horas no banco. A hora só é creditada se o funcionário realizar o ponto equivalente (HE Realizada).</li>
+          <li><strong>HE Indevida:</strong> Horas excedentes não autorizadas ficam marcadas no espelho do ponto para auditoria administrativa e não entram no BH de crédito automaticamente.</li>
+          <li><strong>Plantão Noturno:</strong> Cruzamento de dia (19h às 07h) unificado numa única jornada contínua D &rarr; D+1.</li>
+          <li><strong>Jornada Extra:</strong> Ponto extra pós-expediente normal exige nova Entrada/Saída com nova auditoria.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 8. Validações Realizadas -->
+    <section>
+      <h3 class="section-title">Matriz de Validações Realizadas</h3>
+      <p style="color: var(--text-muted); margin-bottom: 15px;">Os fluxos abaixo foram percorridos e homologados no ambiente de pré-produção.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span class="badge badge-success">Login Admin e MFA</span>
+        <span class="badge badge-success">Cadastro e Edição de Funcionários</span>
+        <span class="badge badge-success">Colaborador Inativo (bloqueio)</span>
+        <span class="badge badge-success">Login, Senha Provisória e Reset</span>
+        <span class="badge badge-success">Escala Manual</span>
+        <span class="badge badge-success">Escala 12x36 e Plantões (D -> D+1)</span>
+        <span class="badge badge-success">Escalas Automáticas (5x2, 6x1)</span>
+        <span class="badge badge-success">Bloqueio de Entrada em Folga</span>
+        <span class="badge badge-success">Entrada Inicial e Saída Final (Câmera+GPS)</span>
+        <span class="badge badge-success">Almoço Fracionado / Retorno Almoço</span>
+        <span class="badge badge-success">Jornada Extra Isolada</span>
+        <span class="badge badge-success">Hora Extra (Autorizada/Parcial/Indevida)</span>
+        <span class="badge badge-success">Apuração Diária (RPC de Saldo)</span>
+        <span class="badge badge-success">Solicitações Colaborador (HE, Folga)</span>
+        <span class="badge badge-success">Dashboard de KPIs Admin</span>
+        <span class="badge badge-success">Histórico Real Gerencial</span>
+        <span class="badge badge-success">Modal de Auditoria "Ver Escala"</span>
+        <span class="badge badge-success">Relatório Espelho A4 / Impressão CSS</span>
+      </div>
+    </section>
+
+    <!-- 9. Situação Atual -->
+    <section>
+      <h3 class="section-title">Situação Atual do Sistema</h3>
+      <div style="background: #E8F4FA; border-left: 4px solid var(--primary); padding: 15px 20px; border-radius: 4px;">
+        <p>As quatro demandas críticas solicitadas na última revisão com a cliente Karol foram integradas ao núcleo do sistema com êxito absoluto. O motor do <strong>A2 DataPoint está em estágio avançado de pré-homologação.</strong> O fluxo operacional principal está validado matematicamente. O próximo passo é fechar o ambiente para testes assistidos, tratando-o como ambiente iminente de produção.</p>
+      </div>
+    </section>
+
+    <!-- 10. Riscos e cuidados operacionais -->
+    <section>
+      <h3 class="section-title">Riscos e Cuidados Operacionais</h3>
+      <ul class="risk-list">
+        <li><strong>Poluição de Testes:</strong> Não prosseguir para a homologação final sem antes limpar as transações falsas e testes massivos na tabela `attendance_records` e `hour_bank_transactions`.</li>
+        <li><strong>Relatório Legal (AEJ/REP):</strong> Lembrar que o espelho gerado é gerencial/interno para assinatura por acordo mútuo, e não deve ser prometido como arquivo eletrônico inviolável nos formatos restritos portaria MTE.</li>
+        <li><strong>Mock Funcional:</strong> Garantir que a flag `VITE_ENABLE_DEMO_MOCK` esteja como `false` para evitar vazamento do modo visual de demonstração.</li>
+        <li><strong>Navegador iOS/Android:</strong> A precisão da geolocalização e uso da câmera dependem 100% das permissões do Safari/Chrome no aparelho da ILPI.</li>
+      </ul>
+    </section>
+
+    <!-- 11. Próximos Passos -->
+    <section>
+      <h3 class="section-title">Próximos Passos Recomendados</h3>
+      <ol style="padding-left: 20px; margin-bottom: 20px;">
+        <li>Limpeza final de dados de teste (Higienização DB).</li>
+        <li>Reset preservando exclusivamente o perfil Master (Matrícula 01).</li>
+        <li>Deploy definitivo online na Vercel (garantir HTTPS obrigatório para GeoFence e Câmera).</li>
+        <li>Bloqueio de variável MOCK no servidor de produção.</li>
+        <li>Criar credenciais da cliente (Admin Karol).</li>
+        <li>Cadastrar e configurar a escala real de um <strong>Colaborador Piloto</strong> na ILPI.</li>
+        <li>Executar Homologação Guiada in-loco (com celular real da clínica).</li>
+        <li>Ajustes finos de texto/termos caso a cliente solicite adaptações na interface.</li>
+        <li>Preparar o "Guia de Bolso" de uso rápido (Admin e Colaborador).</li>
+      </ol>
+    </section>
+
+    <!-- 12. Checklist -->
+    <section>
+      <h3 class="section-title">Checklist Técnico Final</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+        <div class="box" style="background: #fff; padding: 15px;">
+          <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--primary);">Antes do Deploy</h4>
+          <ul class="check-list" style="font-size: 13px;">
+            <li>.env.local fora do Git</li>
+            <li>relatorio/ no .gitignore</li>
+            <li>VITE_ENABLE_DEMO_MOCK=false</li>
+            <li>Build React/Vite aprovado</li>
+            <li>Variáveis Supabase OK</li>
+          </ul>
+        </div>
+        <div class="box" style="background: #fff; padding: 15px;">
+          <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--primary);">Antes da Homologação</h4>
+          <ul class="check-list" style="font-size: 13px;">
+            <li>Base Limpa (Soft reset)</li>
+            <li>Master preservado (Mat. 01)</li>
+            <li>Admin Karol criado</li>
+            <li>Piloto real cadastrado</li>
+            <li>GPS/Câmera em HTTPS real</li>
+          </ul>
+        </div>
+        <div class="box" style="background: #fff; padding: 15px;">
+          <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--primary);">Antes de Produção</h4>
+          <ul class="check-list" style="font-size: 13px;">
+            <li>RLS / Edge Functions revisadas</li>
+            <li>Storage buckets blindados</li>
+            <li>Backup inicial do schema</li>
+            <li>Manual entregue</li>
+            <li>Termo de Aceite/Homologação</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Conclusão -->
+    <section>
+      <h3 class="section-title">Conclusão</h3>
+      <p>O desenvolvimento percorreu um longo e bem-sucedido caminho estrutural, convertendo uma aplicação genérica em um software vertical, altamente robusto e restrito às regras temporais severas do trabalho de saúde. As validações demonstram que as restrições de negócio (horas mistas, cruzamento de turnos e extratos do banco de horas) protegem o administrador e empoderam o colaborador na medida exata.</p>
+    </section>
+
+    <footer>
+      <p><strong>A2 DataPoint — A2 Data</strong></p>
+      <p>Relatório interno de evolução do projeto</p>
+      <p>Gerado para controle local de desenvolvimento e pré-homologação</p>
+      <p style="margin-top: 5px;">Junho/2026</p>
+    </footer>
+
+  </div>
+
+</body>
+</html>
